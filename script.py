@@ -86,12 +86,11 @@ class Script:
     TUTORIAL_REMOVED = "✅ **Tutorial Link Removed!**\nএখন থেকে আর টিউটোরিয়াল বাটন দেখাবে না।"
     TUTORIAL_SUCCESS = "✅ **Tutorial Link Updated Successfully!**\n\n🔗 **Link:** {link}"
     
-    # 🚀 NEW: Auto Delete Setting Commands
+    # ================= Settings Panel =================
     SET_DELETE_USAGE = "❌ **সঠিক নিয়ম:** `/set_delete 10` (মিনিট) অথবা `/set_delete off`"
     SET_DELETE_OFF = "✅ **Auto Delete is now OFF!**\nফাইল আর অটো-ডিলিট হবে না।"
     SET_DELETE_ON = "✅ **Auto Delete is now ON!**\nইউজারদের দেওয়া ফাইল **{mins} মিনিট** পর ডিলিট হয়ে যাবে।"
     
-    # ================= Settings Panel =================
     SETTINGS_MSG = "⚙️ **Advanced Bot Settings Panel**\n\nনিচের বাটনগুলো ক্লিক করে বটের ভেরিফিকেশন এবং শর্টলিংক সিস্টেম কন্ট্রোল করুন:"
     NOT_OWNER_ALERT = "❌ You are not the owner!"
     SETTINGS_UPDATED_ALERT = "✅ Settings Updated!"
@@ -112,4 +111,5 @@ class Script:
     BTN_SL_CREDIT = "🎁 Credits: {creds} Files 🔄"
     BTN_BYPASS_TIME = "🛡 Bypass Time Guard: {time}s 🔄"
     BTN_WEB_GUARD = "🔥 Cloudflare Web Guard: {status}"
+    BTN_PROTECT_CONTENT = "🔒 Protect Content: {status}"  # 🚀 NEW: Protect Content Button String
     BTN_CLOSE_PANEL = "❌ Close Panel"
