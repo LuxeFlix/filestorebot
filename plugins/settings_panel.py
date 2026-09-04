@@ -10,10 +10,7 @@ def get_settings_keyboard(settings):
     verify_time = settings.get('verify_duration', 24)
     bypass_cred = settings.get('bypass_credits', 3)
     bypass_time = settings.get('bypass_time', 15)
-    
     guard_status = "🟢 ON" if settings.get('web_guard', False) else "🔴 OFF"
-    
-    # 🚀 NEW: Fetch Protect Content Status
     protect_status = "🟢 ON" if settings.get('protect_content', False) else "🔴 OFF"
     
     keyboard = [
@@ -28,9 +25,10 @@ def get_settings_keyboard(settings):
         
     keyboard.append([InlineKeyboardButton(Script.BTN_BYPASS_TIME.format(time=bypass_time), callback_data="set_bypass_time")])
     keyboard.append([InlineKeyboardButton(Script.BTN_WEB_GUARD.format(status=guard_status), callback_data="set_web_guard")])
-    
-    # 🚀 NEW: Add Protect Content Toggle Button
     keyboard.append([InlineKeyboardButton(Script.BTN_PROTECT_CONTENT.format(status=protect_status), callback_data="set_protect")])
+    
+    # 🚀 NEW: Add Premium Settings Menu Button
+    keyboard.append([InlineKeyboardButton(Script.BTN_PREMIUM_SETTINGS, callback_data="prem_settings_menu")])
         
     keyboard.append([InlineKeyboardButton(Script.BTN_CLOSE_PANEL, callback_data="close_settings")])
     return InlineKeyboardMarkup(keyboard)
@@ -43,8 +41,7 @@ async def settings_command(client: Client, message: Message):
     settings = await db.get_settings()
     await message.reply_text(Script.SETTINGS_MSG, reply_markup=get_settings_keyboard(settings))
 
-# 🚀 FIX: Regex updated to handle set_protect
-@Client.on_callback_query(filters.regex(r"^set_sl_|^set_bypass_|^set_web_|^set_protect"))
+@Client.on_callback_query(filters.regex(r"^set_sl_|^set_bypass_|^set_web_|^set_protect|^prem_settings_menu|^back_to_main_settings|^set_pay_help"))
 async def settings_callbacks(client: Client, query: CallbackQuery):
     if query.from_user.id != Config.OWNER_ID:
         return await query.answer(Script.NOT_OWNER_ALERT, show_alert=True)
@@ -52,6 +49,22 @@ async def settings_callbacks(client: Client, query: CallbackQuery):
     settings = await db.get_settings()
     action = query.data
     
+    # 🚀 Premium Panel Controls
+    if action == "prem_settings_menu":
+        kb = [
+            [InlineKeyboardButton("💳 s ᴇ ᴛ  ᴘ ᴀ ʏ ᴍ ᴇ ɴ ᴛ  ɪ ɴ ғ ᴏ", callback_data="set_pay_help")],
+            [InlineKeyboardButton("🔙 ʙ ᴀ ᴄ ᴋ", callback_data="back_to_main_settings")]
+        ]
+        text = "💎 **ᴘ ʀ ᴇ ᴍ ɪ ᴜ ᴍ  ᴄ ᴏ ɴ ᴛ ʀ ᴏ ʟ  ᴘ ᴀ ɴ ᴇ ʟ**\n\n• Use `/set_pay <text>` to update Payment Details.\n• Use `/add_prem <user_id> <days> <limit>` to give premium.\n• Use `/del_prem <user_id>` to remove."
+        return await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(kb))
+        
+    elif action == "back_to_main_settings":
+        return await query.message.edit_text(Script.SETTINGS_MSG, reply_markup=get_settings_keyboard(settings))
+        
+    elif action == "set_pay_help":
+        return await query.answer("Type /set_pay followed by your Bkash/Nagad details in normal message to update!", show_alert=True)
+
+    # Normal Controls
     if action == "set_sl_status":
         new_status = not settings.get('shortlink_status', False)
         await db.update_settings('shortlink_status', new_status)
@@ -83,7 +96,6 @@ async def settings_callbacks(client: Client, query: CallbackQuery):
         new_status = not settings.get('web_guard', False)
         await db.update_settings('web_guard', new_status)
         
-    # 🚀 NEW: Handle Protect Content Toggle
     elif action == "set_protect":
         new_status = not settings.get('protect_content', False)
         await db.update_settings('protect_content', new_status)
