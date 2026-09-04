@@ -24,7 +24,15 @@ async def show_premium_plans_cb(client: Client, query: CallbackQuery):
         [InlineKeyboardButton(Script.BTN_BUY_NOW, callback_data="buy_premium_menu")],
         [InlineKeyboardButton("❌ ᴄʟᴏsᴇ", callback_data="close_settings")]
     ]
-    await query.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
+    
+    # 🚀 SMART UX FIX: নতুন মেসেজ না পাঠিয়ে আগের মেসেজটিকেই এডিট করবে
+    try:
+        if query.message.photo or query.message.video:
+            await query.message.edit_caption(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
+        else:
+            await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
+    except Exception:
+        pass
     await query.answer()
 
 @Client.on_message(filters.command(["plan", "premium"]))
@@ -52,7 +60,15 @@ async def buy_premium_cb(client: Client, query: CallbackQuery):
     if row: keyboard.append(row)
         
     keyboard.append([InlineKeyboardButton("🔙 ʙᴀᴄᴋ", callback_data="show_premium_plans")])
-    await query.message.edit_text(Script.BUY_PREMIUM_MSG, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
+    
+    # 🚀 SMART UX FIX: পেমেন্ট ইনফো দেখানোর জন্য শুধু টেক্সট এডিট হবে
+    try:
+        if query.message.photo or query.message.video:
+            await query.message.edit_caption(Script.BUY_PREMIUM_MSG, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
+        else:
+            await query.message.edit_text(Script.BUY_PREMIUM_MSG, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
+    except Exception:
+        pass
     await query.answer()
 
 @Client.on_message(filters.command("buy"))
@@ -70,6 +86,7 @@ async def buy_command(client: Client, message: Message):
         
     keyboard.append([InlineKeyboardButton("❌ ᴄʟᴏsᴇ", callback_data="close_settings")])
     await message.reply_text(Script.BUY_PREMIUM_MSG, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
+
 
 # ================= ADMIN CONTROLS =================
 
