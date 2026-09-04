@@ -1,4 +1,4 @@
-import json
+import orjson
 import base64
 import hashlib
 from config import Config
@@ -27,7 +27,8 @@ class ShortlinkGuard:
                 "w": bypass_time     
             }
             
-            json_data = json.dumps(data).encode('utf-8')
+            # 🚀 Fastest Payload Generator: orjson implementation
+            json_data = orjson.dumps(data)
             b64_data = base64.urlsafe_b64encode(json_data).decode('utf-8').rstrip("=")
             
             final_payload = f"{b64_data}.luxe"
