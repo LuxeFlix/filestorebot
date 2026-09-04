@@ -5,7 +5,7 @@ from utils.database import db
 @Client.on_message(filters.command(["set_db", "set_log"]) & filters.private)
 async def settings_commands(client: Client, message: Message):
     if not await db.is_admin(message.from_user.id):
-        return await message.reply_text("⚠️ **Warning:** আপনার এই সেটিংস পরিবর্তন করার অনুমতি নেই! শুধুমাত্র অ্যাডমিনরা এটি করতে পারেন।")
+        return # 🚀 SILENT IGNORE (কোনো ওয়ার্নিং মেসেজ দেবে না)
 
     command = message.command[0]
     
