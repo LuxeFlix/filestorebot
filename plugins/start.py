@@ -3,7 +3,7 @@ import asyncio
 import random
 import gc
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery, LinkPreviewOptions
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery, LinkPreviewOptions, WebAppInfo
 from pyrogram.errors import FloodWait, ChannelInvalid, ChannelPrivate, ChatAdminRequired
 from pyrogram.enums import ParseMode
 from config import Config
@@ -347,16 +347,24 @@ async def start_command(client: Client, message: Message):
         await deliver_file(client, message.chat.id, payload, reply_to_msg=message)
         return
 
+    # 🚀 NEW: ULTRA PREMIUM START MENU UI
     welcome_text = Script.START_MSG.format(mention=message.from_user.mention)
-    
     if await db.is_premium(user_id):
         welcome_text += Script.PREMIUM_USER_TAG
     elif settings.get('shortlink_status') and settings.get('shortlink_type') == 'credit' and not is_admin:
         creds = await db.get_credits(user_id)
         welcome_text += Script.CREDIT_TAG.format(creds=creds)
         
-    buttons = InlineKeyboardMarkup([[InlineKeyboardButton(Script.BTN_UPDATES_CHANNEL, url="https://t.me/koreandrama006", style="primary")]])
-    await message.reply_text(welcome_text, reply_markup=buttons)
+    buttons = InlineKeyboardMarkup([
+        [InlineKeyboardButton(Script.BTN_FOR_MORE, callback_data="for_more_menu")],
+        [InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu"), InlineKeyboardButton(Script.BTN_COMMANDS, callback_data="commands_menu")]
+    ])
+    
+    start_pic = getattr(Config, "START_PIC", None)
+    if start_pic:
+        await message.reply_photo(photo=start_pic, caption=welcome_text, reply_markup=buttons, parse_mode=ParseMode.HTML)
+    else:
+        await message.reply_text(welcome_text, reply_markup=buttons, parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
 
 @Client.on_callback_query(filters.regex(r"^chkF_"))
 async def check_fsub_callback(client: Client, query: CallbackQuery):
@@ -389,3 +397,102 @@ async def check_fsub_callback(client: Client, query: CallbackQuery):
         if is_locked: return
 
     await deliver_file(client, query.message.chat.id, payload)
+
+# 🚀 NEW: DYNAMIC ULTRA PREMIUM CALLBACKS (1:1 with photo)
+@Client.on_callback_query(filters.regex(r"^(for_more_menu|about_menu|commands_menu|back_to_start|close_menu|stats_menu)$"))
+async def start_menu_callbacks(client: Client, query: CallbackQuery):
+    action = query.data
+    user_id = query.from_user.id
+    bot_name = client.me.first_name if client.me else (await client.get_me()).first_name
+
+    if action == "close_menu":
+        try:
+            await query.message.delete()
+        except Exception: pass
+        return
+
+    if action == "back_to_start":
+        settings = await db.get_settings()
+        is_admin = await db.is_admin(user_id)
+        welcome_text = Script.START_MSG.format(mention=query.from_user.mention)
+
+        if await db.is_premium(user_id):
+            welcome_text += Script.PREMIUM_USER_TAG
+        elif settings.get('shortlink_status') and settings.get('shortlink_type') == 'credit' and not is_admin:
+            creds = await db.get_credits(user_id)
+            welcome_text += Script.CREDIT_TAG.format(creds=creds)
+
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton(Script.BTN_FOR_MORE, callback_data="for_more_menu")],
+            [InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu"), InlineKeyboardButton(Script.BTN_COMMANDS, callback_data="commands_menu")]
+        ])
+        try:
+            if query.message.photo or query.message.video:
+                await query.message.edit_caption(welcome_text, reply_markup=buttons, parse_mode=ParseMode.HTML)
+            else:
+                await query.message.edit_text(welcome_text, reply_markup=buttons, parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
+        except Exception: pass
+
+    elif action == "for_more_menu":
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start"), InlineKeyboardButton(Script.BTN_STATS, callback_data="stats_menu")]
+        ])
+        try:
+            if query.message.photo or query.message.video:
+                await query.message.edit_caption(Script.FOR_MORE_MSG, reply_markup=buttons, parse_mode=ParseMode.HTML)
+            else:
+                await query.message.edit_text(Script.FOR_MORE_MSG, reply_markup=buttons, parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
+        except Exception: pass
+
+    elif action == "about_menu":
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start"), InlineKeyboardButton(Script.BTN_CLOSE, callback_data="close_menu")]
+        ])
+        try:
+            if query.message.photo or query.message.video:
+                await query.message.edit_caption(Script.ABOUT_MSG.format(bot_name=bot_name), reply_markup=buttons, parse_mode=ParseMode.HTML)
+            else:
+                await query.message.edit_text(Script.ABOUT_MSG.format(bot_name=bot_name), reply_markup=buttons, parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
+        except Exception: pass
+
+    elif action == "commands_menu":
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start"), InlineKeyboardButton(Script.BTN_CLOSE, callback_data="close_menu")]
+        ])
+        try:
+            if query.message.photo or query.message.video:
+                await query.message.edit_caption(Script.COMMANDS_MSG, reply_markup=buttons, parse_mode=ParseMode.HTML)
+            else:
+                await query.message.edit_text(Script.COMMANDS_MSG, reply_markup=buttons, parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
+        except Exception: pass
+
+    elif action == "stats_menu":
+        is_admin = await db.is_admin(user_id)
+        if not is_admin:
+            return await query.answer("⚠️ Only Admins can view configurations!", show_alert=True)
+
+        total_users = await db.total_users()
+        total_files = await db.total_files()
+        total_banned = await db.total_banned_users()
+        settings = await db.get_settings()
+        
+        auto_del = f"ENABLED ({settings.get('auto_delete')}m)" if settings.get('auto_delete', 0) > 0 else "DISABLED"
+        protect = "ENABLED" if settings.get('protect_content') else "DISABLED"
+        guard = "ENABLED" if settings.get('web_guard') else "DISABLED"
+
+        text = Script.STATS_UI_MSG.format(
+            total_users=total_users, total_files=total_files, total_banned=total_banned, 
+            auto_delete=auto_del, protect=protect, guard=guard
+        )
+        
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton(Script.BTN_BACK_START, callback_data="for_more_menu"), InlineKeyboardButton(Script.BTN_CLOSE, callback_data="close_menu")]
+        ])
+        try:
+            if query.message.photo or query.message.video:
+                await query.message.edit_caption(text, reply_markup=buttons, parse_mode=ParseMode.HTML)
+            else:
+                await query.message.edit_text(text, reply_markup=buttons, parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
+        except Exception: pass
+
+    await query.answer()
