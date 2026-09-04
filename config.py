@@ -20,7 +20,7 @@ class Config:
     MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "FileStoreBotDB")
     
     CUSTOM_DOMAIN = os.environ.get("CUSTOM_DOMAIN", "https://luxeflix.souravbosu947.workers.dev")
-    CUSTOM_PREFIX = os.environ.get("CUSTOM_PREFIX", "PredatorHackerzZ_")
+    # 🚀 CUSTOM_PREFIX রিমুভ করা হয়েছে আপনার নির্দেশ অনুযায়ী
     
     FSUB_CHANNELS = os.environ.get("FSUB_CHANNELS", "")
     SUPPORT_LINK = os.environ.get("SUPPORT_LINK", "https://t.me/YourSupportGroup")
@@ -33,6 +33,7 @@ class Config:
     VERIFY_IMG = os.environ.get("VERIFY_IMG", "https://graph.org/file/341251a37c040d2eb2ec0.jpg") 
     PREMIUM_LINK = os.environ.get("PREMIUM_LINK", "https://t.me/koreandrama006") 
     
-    # 🚀 NEW: Standalone Web Guard Settings (Vercel Removed)
+    # 🚀 Standalone Web Guard Settings
     GUARD_URL = os.environ.get("GUARD_URL", "https://luxeguard.souravbosu947.workers.dev")
-    GUARD_SECRET = os.environ.get("GUARD_SECRET", "Luxe_Super_Secret_Guard_2026") # Cloudflare Secret
+    GUARD_SECRET = os.environ.get("GUARD_SECRET", "Luxe_Super_Secret_Guard_2026")
+
