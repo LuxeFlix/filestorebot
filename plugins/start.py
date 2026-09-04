@@ -166,10 +166,17 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
         gc.collect()
 
 async def handle_verification_check(client: Client, message: Message, user_id: int, payload: str, settings: dict):
-    # 🚀 SECURE: New check_and_use_premium ensures 5-links/day limit is strictly followed
+    # 1. Admin or Premium Check
     if await db.is_admin(user_id) or await db.check_and_use_premium(user_id):
         return False
         
+    # 🚀 NEW: 2. Global Free Daily Limit Check for Non-Premium Users
+    free_limit = settings.get('free_daily_limit', 0)
+    if free_limit > 0:
+        if await db.check_and_use_free_limit(user_id, free_limit):
+            return False
+        
+    # 3. Apply Shortlink Logic
     sl_type = settings.get('shortlink_type', 'time')
     needs_verify = False
     
@@ -219,7 +226,6 @@ async def handle_verification_check(client: Client, message: Message, user_id: i
         if main_btns:
             btn_list.append(main_btns)
             
-        # 🚀 NEW: Shows Dynamic Premium Panel inline
         btn_list.append([InlineKeyboardButton(Script.BTN_BUY_PREMIUM, callback_data="show_premium_plans")])
             
         btn = InlineKeyboardMarkup(btn_list)
