@@ -1,27 +1,19 @@
 import os
-import asyncio
-from aiohttp import web
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
-async def home(request):
-    return web.Response(text="✅ Telegram Bot is running successfully with Ultra-Fast aiohttp Server!", content_type="text/plain")
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        # Back4App-কে রেসপন্স পাঠাবে
+        self.wfile.write(b"Telegram Bot is alive and running with 0 RAM!")
+
+    # 🚀 Logs-এ অপ্রয়োজনীয় পিং মেসেজ অফ করার জন্য
+    def log_message(self, format, *args):
+        pass
 
 def keep_alive():
-    # 🚀 SUPERSONIC UPDATE: Flask রিমুভ করে aiohttp.web যুক্ত করা হয়েছে
-    # এটি ব্যাকগ্রাউন্ড থ্রেডে একটি নতুন ইভেন্ট লুপ তৈরি করে চলবে
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
-    app = web.Application()
-    app.router.add_get('/', home)
-    
     port = int(os.environ.get("PORT", 8080))
-    
-    # AppRunner ব্যবহার করে মেইন টেলিগ্রাম বট লুপকে ডিস্টার্ব না করে সার্ভার রান হবে
-    runner = web.AppRunner(app)
-    loop.run_until_complete(runner.setup())
-    site = web.TCPSite(runner, host='0.0.0.0', port=port)
-    loop.run_until_complete(site.start())
-    
-    # ওয়েব সার্ভারটি লাইভ রাখার জন্য
-    loop.run_forever()
-
+    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+    server.serve_forever()
