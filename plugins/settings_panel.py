@@ -1,6 +1,6 @@
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
-from pyrogram.enums import ParseMode  # 🚀 IMPORTED PARSEMODE
+from pyrogram.enums import ParseMode  
 from config import Config
 from utils.database import db
 from script import Script
@@ -36,7 +36,7 @@ def get_settings_keyboard(settings):
 @Client.on_message(filters.command("settings") & filters.private)
 async def settings_command(client: Client, message: Message):
     if message.from_user.id != Config.OWNER_ID:
-        return await message.reply_text(Script.NOT_OWNER_WARN)
+        return # 🚀 SILENT IGNORE
         
     settings = await db.get_settings()
     await message.reply_text(Script.SETTINGS_MSG, reply_markup=get_settings_keyboard(settings))
@@ -44,7 +44,7 @@ async def settings_command(client: Client, message: Message):
 @Client.on_callback_query(filters.regex(r"^set_sl_|^set_bypass_|^set_web_|^set_protect|^prem_settings_menu|^back_to_main_settings|^set_pay_help"))
 async def settings_callbacks(client: Client, query: CallbackQuery):
     if query.from_user.id != Config.OWNER_ID:
-        return await query.answer(Script.NOT_OWNER_ALERT, show_alert=True)
+        return await query.answer() # 🚀 SILENT IGNORE
         
     settings = await db.get_settings()
     action = query.data
@@ -116,5 +116,5 @@ async def settings_callbacks(client: Client, query: CallbackQuery):
 @Client.on_callback_query(filters.regex("close_settings"))
 async def close_settings(client: Client, query: CallbackQuery):
     if query.from_user.id != Config.OWNER_ID:
-        return
+        return await query.answer() # 🚀 SILENT IGNORE
     await query.message.delete()
