@@ -1,6 +1,7 @@
 import time
 import asyncio
 import random
+import gc # 🚀 Active Garbage Collection এর জন্য যুক্ত করা হলো
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
 from pyrogram.errors import FloodWait, ChannelInvalid, ChannelPrivate, ChatAdminRequired
@@ -12,7 +13,6 @@ from utils.shortener import get_shortlink
 from utils.shortlink_guard import ShortlinkGuard
 from script import Script
 
-# 🚀 RAM Saver: Pure Python LRU Cache System
 FILE_CACHE = {}
 MAX_CACHE_SIZE = 50
 
@@ -51,11 +51,9 @@ async def delete_after_delay(client, chat_id, message_ids, delay):
         pass
 
 async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=None):
-    # 🚀 CUSTOM_PREFIX রিমুভ করে ডাইরেক্ট payload ব্যবহার করা হচ্ছে
     unique_id = payload
         
     try:
-        # 🚀 ডাটাবেসের বদলে RAM Cache থেকে ফাস্ট ডাটা রিড
         file_data = await get_cached_file(unique_id)
         if not file_data:
             if reply_to_msg:
@@ -95,10 +93,8 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                             sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, protect_content=False)
                     if sent_m: sent_msg_ids.append(sent_m.id)
                     
-                    # 🚀 SMART JITTER: মানুষের মতো ফরোয়ার্ড স্পিড মিমিক করার জন্য র‍্যান্ডম ডিলে
                     await asyncio.sleep(random.uniform(0.6, 1.8)) 
                 except FloodWait as e:
-                    # 🚀 FloodWait আসলে ডাইনামিক ওয়েট
                     await asyncio.sleep(e.value + random.uniform(1.0, 2.5))
                     if db_msg and getattr(db_msg, "media", None):
                         sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, caption=final_cap, parse_mode=ParseMode.HTML, protect_content=False)
@@ -154,9 +150,12 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
 
         if auto_delete_time > 0 and sent_msg_ids:
             asyncio.create_task(delete_after_delay(client, chat_id, sent_msg_ids, auto_delete_time * 60))
-                    
+            
     except Exception as e:
         await client.send_message(chat_id, Script.DELIVERY_ERROR)
+    finally:
+        # 🚀 Active Garbage Collection: কাজ শেষ হওয়ামাত্রই মেমোরি থেকে টেম্পোরারি ডেটা ক্লিন করে RAM জিরো করে দেবে
+        gc.collect()
 
 async def handle_verification_check(client: Client, message: Message, user_id: int, payload: str, settings: dict):
     if await db.is_admin(user_id) or await db.is_premium(user_id):
