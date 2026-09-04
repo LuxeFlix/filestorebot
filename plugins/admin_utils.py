@@ -27,10 +27,13 @@ async def bot_statistics(client: Client, message: Message):
     sl_status = "ON" if settings.get('shortlink_status') else "OFF"
     sl_type = settings.get('shortlink_type', 'time').capitalize()
     
+    # 🚀 FIX: guard_status যোগ করা হলো
+    guard_status = "🟢 ON" if settings.get('web_guard', False) else "🔴 OFF"
+    
     text = Script.STATS_MSG.format(
         uptime=uptime, total_users=total_users, total_banned=total_banned,
         total_files=total_files, multi_db_status=multi_db_status,
-        sl_status=sl_status, sl_type=sl_type
+        sl_status=sl_status, sl_type=sl_type, guard_status=guard_status
     )
     await wait_msg.edit_text(text)
 
@@ -78,14 +81,13 @@ async def dbroadcast_message(client: Client, message: Message):
     sent = 0
     failed = 0
     
-    # 🚀 Anti-Ban Batch Broadcasting (Chunking by 50)
     for i in range(0, len(users_list), 50):
         batch = users_list[i:i+50]
         tasks = [send_msg(user['_id'], b_msg, mins, client, True) for user in batch]
         results = await asyncio.gather(*tasks)
         sent += results.count(200)
         failed += results.count(400)
-        await asyncio.sleep(1) # টেলিগ্রাম API কে শান্ত রাখার জন্য ১ সেকেন্ড রেস্ট
+        await asyncio.sleep(1) 
             
     await wait_msg.edit_text(Script.DBROADCAST_DONE.format(sent=sent, failed=failed, mins=mins))
 
@@ -105,7 +107,6 @@ async def broadcast_message(client: Client, message: Message):
     sent = 0
     failed = 0
     
-    # 🚀 Anti-Ban Batch Broadcasting (Chunking by 50)
     for i in range(0, len(users_list), 50):
         batch = users_list[i:i+50]
         tasks = [send_msg(user['_id'], b_msg, 0, client, False) for user in batch]
