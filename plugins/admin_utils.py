@@ -37,7 +37,8 @@ def format_size(size_in_bytes):
 
 @Client.on_message(filters.command("status") & filters.private)
 async def bot_status_command(client: Client, message: Message):
-    if message.from_user.id != Config.OWNER_ID: return
+    if message.from_user.id != Config.OWNER_ID: 
+        return # 🚀 SILENT IGNORE
     
     wait_msg = await message.reply_text("⏳ **Fetching Server & DB Status...**")
     
@@ -59,21 +60,16 @@ async def bot_status_command(client: Client, message: Message):
     text = f"🖥 **Server RAM Usage:**\n`{ram_text}`\n\n📊 **Database Storage (MongoDB Free Tier 512MB):**\n{db_text}\n*(Note: You can store ~1.5M to 2M files in 512MB)*"
     await wait_msg.edit_text(text)
 
-# 🚀 SMART MULTI-DELETE: কমা, স্পেস বা লাইন-বাই-লাইন ডিলিট সাপোর্ট
 @Client.on_message(filters.command("delete") & filters.private)
 async def delete_file_command(client: Client, message: Message):
-    if message.from_user.id != Config.OWNER_ID: return
+    if message.from_user.id != Config.OWNER_ID: 
+        return # 🚀 SILENT IGNORE
     
     if len(message.command) < 2:
         return await message.reply_text("❌ **সঠিক নিয়ম:** `/delete link1, link2` অথবা `/delete id1 id2`")
     
-    # সব টেক্সট একসাথে নেওয়া
     input_text = message.text.split(None, 1)[1]
-    
-    # কমা (,) এবং নতুন লাইন (Enter) কে স্পেস দিয়ে রিপ্লেস করা
     input_text = input_text.replace(",", " ").replace("\n", " ")
-    
-    # স্পেস অনুযায়ী ভাগ করে লিস্ট বানানো (ফাঁকা স্পেস বাদ দিয়ে)
     items = [item.strip() for item in input_text.split() if item.strip()]
     
     if not items:
@@ -97,7 +93,8 @@ async def delete_file_command(client: Client, message: Message):
 
 @Client.on_message(filters.command("stats") & filters.private)
 async def bot_statistics(client: Client, message: Message):
-    if not await db.is_admin(message.from_user.id): return
+    if not await db.is_admin(message.from_user.id): 
+        return # 🚀 SILENT IGNORE
         
     wait_msg = await message.reply_text(Script.FETCHING_STATS)
     total_users = await db.total_users()
@@ -146,7 +143,7 @@ async def send_msg(user_id, b_msg, mins, client, is_dbroadcast):
 @Client.on_message(filters.command("dbroadcast") & filters.private)
 async def dbroadcast_message(client: Client, message: Message):
     if message.from_user.id != Config.OWNER_ID:
-        return await message.reply_text(Script.NOT_OWNER_WARN)
+        return # 🚀 SILENT IGNORE
         
     if len(message.command) < 2 or not message.reply_to_message:
         return await message.reply_text(Script.REPLY_DBROADCAST)
@@ -178,7 +175,9 @@ async def dbroadcast_message(client: Client, message: Message):
 
 @Client.on_message(filters.command("broadcast") & filters.private)
 async def broadcast_message(client: Client, message: Message):
-    if message.from_user.id != Config.OWNER_ID: return
+    if message.from_user.id != Config.OWNER_ID: 
+        return # 🚀 SILENT IGNORE
+        
     if not message.reply_to_message:
         return await message.reply_text(Script.REPLY_BROADCAST)
         
@@ -203,7 +202,9 @@ async def broadcast_message(client: Client, message: Message):
 
 @Client.on_message(filters.command("ban") & filters.private)
 async def ban_user_command(client: Client, message: Message):
-    if message.from_user.id != Config.OWNER_ID: return
+    if message.from_user.id != Config.OWNER_ID: 
+        return # 🚀 SILENT IGNORE
+        
     if len(message.command) < 2:
         return await message.reply_text(Script.BAN_USAGE)
     try:
@@ -217,7 +218,9 @@ async def ban_user_command(client: Client, message: Message):
 
 @Client.on_message(filters.command("unban") & filters.private)
 async def unban_user_command(client: Client, message: Message):
-    if message.from_user.id != Config.OWNER_ID: return
+    if message.from_user.id != Config.OWNER_ID: 
+        return # 🚀 SILENT IGNORE
+        
     if len(message.command) < 2:
         return await message.reply_text(Script.UNBAN_USAGE)
     try:
@@ -229,13 +232,17 @@ async def unban_user_command(client: Client, message: Message):
 
 @Client.on_message(filters.command("unban_all") & filters.private)
 async def unban_all_command(client: Client, message: Message):
-    if message.from_user.id != Config.OWNER_ID: return
+    if message.from_user.id != Config.OWNER_ID: 
+        return # 🚀 SILENT IGNORE
+        
     count = await db.unban_all_users()
     await message.reply_text(Script.UNBAN_ALL_SUCCESS.format(count=count))
 
 @Client.on_message(filters.command("add_credit") & filters.private)
 async def manual_add_credit(client: Client, message: Message):
-    if message.from_user.id != Config.OWNER_ID: return
+    if message.from_user.id != Config.OWNER_ID: 
+        return # 🚀 SILENT IGNORE
+        
     if len(message.command) < 3:
         return await message.reply_text(Script.ADD_CREDIT_USAGE)
     try:
@@ -248,7 +255,9 @@ async def manual_add_credit(client: Client, message: Message):
 
 @Client.on_message(filters.command("set_shortlink") & filters.private)
 async def set_shortlink_api(client: Client, message: Message):
-    if message.from_user.id != Config.OWNER_ID: return
+    if message.from_user.id != Config.OWNER_ID: 
+        return # 🚀 SILENT IGNORE
+        
     if len(message.command) < 3:
         return await message.reply_text(Script.SET_SL_USAGE)
         
@@ -261,7 +270,9 @@ async def set_shortlink_api(client: Client, message: Message):
 
 @Client.on_message(filters.command("set_tutorial") & filters.private)
 async def set_tutorial_link(client: Client, message: Message):
-    if message.from_user.id != Config.OWNER_ID: return
+    if message.from_user.id != Config.OWNER_ID: 
+        return # 🚀 SILENT IGNORE
+        
     if len(message.command) < 2:
         return await message.reply_text(Script.SET_TUTORIAL_USAGE)
         
@@ -276,7 +287,9 @@ async def set_tutorial_link(client: Client, message: Message):
 
 @Client.on_message(filters.command("remove_credit") & filters.private)
 async def manual_remove_credit(client: Client, message: Message):
-    if message.from_user.id != Config.OWNER_ID: return
+    if message.from_user.id != Config.OWNER_ID: 
+        return # 🚀 SILENT IGNORE
+        
     if len(message.command) < 3:
         return await message.reply_text(Script.REMOVE_CREDIT_USAGE)
     try:
