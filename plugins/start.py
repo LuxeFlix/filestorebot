@@ -3,7 +3,7 @@ import asyncio
 import random
 import gc
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery, LinkPreviewOptions
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery, LinkPreviewOptions, WebAppInfo
 from pyrogram.errors import FloodWait, ChannelInvalid, ChannelPrivate, ChatAdminRequired
 from pyrogram.enums import ParseMode
 from config import Config
@@ -42,11 +42,21 @@ def format_caption(original_caption: str) -> str:
         return f"{original_caption}{Script.BRANDING_TAG}"
     return Script.BRANDING_TAG.strip()
 
+# 🚀 SMART UX FIX: নতুন মেসেজ না পাঠিয়ে ওয়ার্নিং মেসেজ এডিট করবে
 async def delete_after_delay(client, chat_id, message_ids, delay):
     await asyncio.sleep(delay)
+    
+    warn_msg_id = message_ids[-1]
+    file_msg_ids = message_ids[:-1]
+    
     try:
-        await client.delete_messages(chat_id, message_ids)
-        await client.send_message(chat_id, Script.AUTO_DELETE_DONE)
+        if file_msg_ids:
+            await client.delete_messages(chat_id, file_msg_ids)
+    except Exception:
+        pass
+        
+    try:
+        await client.edit_message_text(chat_id, warn_msg_id, Script.AUTO_DELETE_DONE)
     except Exception:
         pass
 
@@ -204,7 +214,7 @@ async def handle_verification_check(client: Client, message: Message, user_id: i
         
         main_btns = []
         if short_url:
-            main_btns.append(InlineKeyboardButton(Script.BTN_OPEN_LINK, url=short_url))
+            main_btns.append(InlineKeyboardButton(Script.BTN_OPEN_LINK, web_app=WebAppInfo(url=short_url)))
         if tutorial_link:
             main_btns.append(InlineKeyboardButton(Script.BTN_TUTORIAL, url=tutorial_link))
             
