@@ -59,10 +59,8 @@ async def message_handler(client: Client, message: Message):
     if message.text and message.text.startswith("/"):
         return
 
-    # 🚀 FIX: Perfect Non-Admin Logic
     is_admin = await db.is_admin(user_id)
     if not is_admin:
-        # Ignore normal texts to avoid warning spam when they chat
         if message.media or message.forward_from_chat:
             now = time.time()
             if now - NON_ADMIN_WARN_CACHE.get(user_id, 0) > 60:
@@ -93,8 +91,8 @@ async def message_handler(client: Client, message: Message):
             wait_msg = await message.reply_text(Script.GEN_BATCH_LINK_WAIT)
             try:
                 unique_id = await db.save_batch(first_id, last_id, active_db)
-                final_payload = f"{Config.CUSTOM_PREFIX}{unique_id}"
-                custom_link = f"{Config.CUSTOM_DOMAIN}?start={final_payload}"
+                # 🚀 CUSTOM_PREFIX রিমুভ করে ডাইরেক্ট unique_id ব্যবহার করা হয়েছে
+                custom_link = f"{Config.CUSTOM_DOMAIN}?start={unique_id}"
                 
                 total_files = (last_id - first_id) + 1
                 reply_text = Script.BATCH_SUCCESS_LINK.format(total_files=total_files, custom_link=custom_link)
@@ -125,8 +123,7 @@ async def message_handler(client: Client, message: Message):
                 f_id, f_uniq, cap = None, None, ""
                 
             unique_id = await db.save_file(db_msg_id, active_db, f_id, f_uniq, cap)
-            final_payload = f"{Config.CUSTOM_PREFIX}{unique_id}"
-            custom_link = f"{Config.CUSTOM_DOMAIN}?start={final_payload}"
+            custom_link = f"{Config.CUSTOM_DOMAIN}?start={unique_id}"
             
             reply_text = Script.SINGLE_SUCCESS_LINK.format(custom_link=custom_link)
             buttons = InlineKeyboardMarkup([[InlineKeyboardButton(Script.BTN_ORIGINAL_LINK, url=custom_link, style="success")]])
@@ -143,8 +140,7 @@ async def message_handler(client: Client, message: Message):
     wait_msg = await message.reply_text(Script.GEN_LINK_WAIT, quote=True)
     existing_file = await db.check_file_exists(file_unique_id)
     if existing_file:
-        final_payload = f"{Config.CUSTOM_PREFIX}{existing_file['_id']}"
-        custom_link = f"{Config.CUSTOM_DOMAIN}?start={final_payload}"
+        custom_link = f"{Config.CUSTOM_DOMAIN}?start={existing_file['_id']}"
         reply_text = Script.FILE_EXISTS.format(custom_link=custom_link)
         buttons = InlineKeyboardMarkup([[InlineKeyboardButton(Script.BTN_ORIGINAL_LINK, url=custom_link, style="success")]])
         await wait_msg.edit_text(reply_text, reply_markup=buttons, disable_web_page_preview=True)
@@ -174,8 +170,7 @@ async def generate_single_link(client: Client, query):
             final_msg_id = copied_msg.id
             
         unique_id = await db.save_file(final_msg_id, active_db, file_id, file_unique_id, caption)
-        final_payload = f"{Config.CUSTOM_PREFIX}{unique_id}"
-        custom_link = f"{Config.CUSTOM_DOMAIN}?start={final_payload}"
+        custom_link = f"{Config.CUSTOM_DOMAIN}?start={unique_id}"
         
         reply_text = Script.SAVED_IN_DB.format(custom_link=custom_link)
         buttons = InlineKeyboardMarkup([[InlineKeyboardButton(Script.BTN_ORIGINAL_LINK, url=custom_link, style="success")]])
