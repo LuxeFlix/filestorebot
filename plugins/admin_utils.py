@@ -1,3 +1,4 @@
+import os
 import time
 import asyncio
 from datetime import timedelta
@@ -9,6 +10,90 @@ from utils.database import db
 from script import Script
 
 bot_start_time = time.time()
+
+def get_ram_usage():
+    try:
+        with open('/proc/meminfo', 'r') as f:
+            lines = f.readlines()
+        total_mem = free_mem = 0
+        for line in lines:
+            if line.startswith("MemTotal:"):
+                total_mem = int(line.split()[1]) * 1024
+            elif line.startswith("MemAvailable:"):
+                free_mem = int(line.split()[1]) * 1024
+        if total_mem > 0:
+            used_mem = total_mem - free_mem
+            return used_mem, total_mem
+    except Exception:
+        pass
+    return 0, 0
+
+def format_size(size_in_bytes):
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size_in_bytes < 1024.0:
+            return f"{size_in_bytes:.2f} {unit}"
+        size_in_bytes /= 1024.0
+    return "0 B"
+
+@Client.on_message(filters.command("status") & filters.private)
+async def bot_status_command(client: Client, message: Message):
+    if message.from_user.id != Config.OWNER_ID: return
+    
+    wait_msg = await message.reply_text("⏳ **Fetching Server & DB Status...**")
+    
+    used_ram, total_ram = get_ram_usage()
+    ram_text = f"{format_size(used_ram)} / {format_size(total_ram)}" if total_ram > 0 else "Unknown"
+    
+    db_stats = await db.get_db_stats()
+    db_text = ""
+    for i in range(1, 4):
+        db_key = f"db{i}"
+        if db_key in db_stats:
+            used_mb = db_stats[db_key]['dataSize'] / (1024 * 1024)
+            free_mb = 512.0 - used_mb
+            db_text += f"🗄 **DB{i}:** `{used_mb:.2f} MB Used` (Free: `{free_mb:.2f} MB`)\n"
+    
+    if not db_text:
+        db_text = "No Database Connected!"
+        
+    text = f"🖥 **Server RAM Usage:**\n`{ram_text}`\n\n📊 **Database Storage (MongoDB Free Tier 512MB):**\n{db_text}\n*(Note: You can store ~1.5M to 2M files in 512MB)*"
+    await wait_msg.edit_text(text)
+
+# 🚀 SMART MULTI-DELETE: কমা, স্পেস বা লাইন-বাই-লাইন ডিলিট সাপোর্ট
+@Client.on_message(filters.command("delete") & filters.private)
+async def delete_file_command(client: Client, message: Message):
+    if message.from_user.id != Config.OWNER_ID: return
+    
+    if len(message.command) < 2:
+        return await message.reply_text("❌ **সঠিক নিয়ম:** `/delete link1, link2` অথবা `/delete id1 id2`")
+    
+    # সব টেক্সট একসাথে নেওয়া
+    input_text = message.text.split(None, 1)[1]
+    
+    # কমা (,) এবং নতুন লাইন (Enter) কে স্পেস দিয়ে রিপ্লেস করা
+    input_text = input_text.replace(",", " ").replace("\n", " ")
+    
+    # স্পেস অনুযায়ী ভাগ করে লিস্ট বানানো (ফাঁকা স্পেস বাদ দিয়ে)
+    items = [item.strip() for item in input_text.split() if item.strip()]
+    
+    if not items:
+        return await message.reply_text("❌ **কোনো আইডি বা লিংক পাওয়া যায়নি!**")
+        
+    wait_msg = await message.reply_text(f"⏳ **Deleting {len(items)} items...**")
+    
+    success = 0
+    failed = 0
+    
+    for item in items:
+        unique_id = item.split("start=")[-1] if "start=" in item else item
+        deleted = await db.delete_file(unique_id)
+        if deleted:
+            success += 1
+        else:
+            failed += 1
+            
+    text = f"🗑 **ডিলিট প্রসেস সম্পন্ন!**\n\n✅ **সফলভাবে ডিলিট হয়েছে:** `{success}`\n❌ **পাওয়া যায়নি/ফেইল:** `{failed}`"
+    await wait_msg.edit_text(text)
 
 @Client.on_message(filters.command("stats") & filters.private)
 async def bot_statistics(client: Client, message: Message):
@@ -27,7 +112,6 @@ async def bot_statistics(client: Client, message: Message):
     sl_status = "ON" if settings.get('shortlink_status') else "OFF"
     sl_type = settings.get('shortlink_type', 'time').capitalize()
     
-    # 🚀 FIX: guard_status যোগ করা হলো
     guard_status = "🟢 ON" if settings.get('web_guard', False) else "🔴 OFF"
     
     text = Script.STATS_MSG.format(
@@ -117,7 +201,6 @@ async def broadcast_message(client: Client, message: Message):
             
     await wait_msg.edit_text(Script.BROADCAST_DONE.format(sent=sent, failed=failed))
 
-
 @Client.on_message(filters.command("ban") & filters.private)
 async def ban_user_command(client: Client, message: Message):
     if message.from_user.id != Config.OWNER_ID: return
@@ -149,7 +232,6 @@ async def unban_all_command(client: Client, message: Message):
     if message.from_user.id != Config.OWNER_ID: return
     count = await db.unban_all_users()
     await message.reply_text(Script.UNBAN_ALL_SUCCESS.format(count=count))
-
 
 @Client.on_message(filters.command("add_credit") & filters.private)
 async def manual_add_credit(client: Client, message: Message):
