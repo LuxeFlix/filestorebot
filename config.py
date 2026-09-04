@@ -30,7 +30,7 @@ class Config:
     VERIFY_EXPIRE = int(os.environ.get("VERIFY_EXPIRE", 86400))
     TUTORIAL_LINK = os.environ.get("TUTORIAL_LINK", "") 
     
-    VERIFY_IMG = os.environ.get("VERIFY_IMG", "https://graph.org/file/341251a37c040d2eb2ec0.jpg") 
+    VERIFY_IMG = os.environ.get("VERIFY_IMG", "https://i.ibb.co/XkWwHqy8/photo-2026-09-04-23-47-45-7681831085168132132.jpg") 
     PREMIUM_LINK = os.environ.get("PREMIUM_LINK", "https://t.me/koreandrama006") 
     
     # 🚀 Standalone Web Guard Settings
@@ -45,5 +45,5 @@ class Config:
     OWNER_LINK = os.environ.get("OWNER_LINK", "https://t.me/koreandrama006")
     
     # আপনার ছবির লিংক (যদি আগে না দিয়ে থাকেন)
-    START_PIC = os.environ.get("START_PIC", "https://i.ibb.co/your-image.jpg")
+    START_PIC = os.environ.get("START_PIC", "https://i.ibb.co/DPbqZ7Mn/photo-2026-09-04-23-38-51-7681830930549309480.jpg")
 
