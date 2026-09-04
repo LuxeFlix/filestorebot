@@ -18,7 +18,6 @@ def get_file_info(message):
     return None, None, ""
 
 def get_msg_id(message: Message):
-    # 🚀 FIX: Kurigram Deprecated Warning Solved
     if hasattr(message, "forward_origin") and message.forward_origin and hasattr(message.forward_origin, 'message_id'):
         return message.forward_origin.message_id
     elif hasattr(message, "forward_from_message_id") and message.forward_from_message_id:
@@ -118,7 +117,6 @@ async def message_handler(client: Client, message: Message):
     if not file_id:
         db_msg_id = get_msg_id(message)
         if db_msg_id:
-            # 🚀 FIX: quote=True রিপ্লেস করা হয়েছে
             wait_msg = await message.reply_text(Script.GEN_DB_LINK_WAIT, reply_to_message_id=message.id)
             try:
                 db_msg = await client.get_messages(active_db, db_msg_id)
@@ -168,7 +166,6 @@ async def generate_single_link(client: Client, query):
         final_msg_id = None
         forward_chat_id = None
         
-        # 🚀 FIX: Deprecated forward_from_chat 
         if hasattr(original_msg, "forward_origin") and original_msg.forward_origin and hasattr(original_msg.forward_origin, 'chat'):
             forward_chat_id = original_msg.forward_origin.chat.id
         elif hasattr(original_msg, "forward_from_chat") and original_msg.forward_from_chat:
