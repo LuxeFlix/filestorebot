@@ -1,6 +1,6 @@
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
-from pyrogram.enums import ParseMode
+from pyrogram.enums import ParseMode  # 🚀 IMPORTED PARSEMODE
 from config import Config
 from utils.database import db
 from script import Script
@@ -52,6 +52,7 @@ async def settings_callbacks(client: Client, query: CallbackQuery):
     if action == "prem_settings_menu":
         kb = [[InlineKeyboardButton("🔙 ʙᴀᴄᴋ", callback_data="back_to_main_settings")]]
         
+        # 🚀 FIX: Used strict HTML parsing to prevent EntityBoundsInvalid crashes
         text = (
             "💎 <b>ᴘʀᴇᴍɪᴜᴍ ᴄᴏɴᴛʀᴏʟ ᴘᴀɴᴇʟ</b>\n\n"
             "<b>1. Button Links:</b>\n"
