@@ -26,9 +26,7 @@ def get_settings_keyboard(settings):
     keyboard.append([InlineKeyboardButton(Script.BTN_BYPASS_TIME.format(time=bypass_time), callback_data="set_bypass_time")])
     keyboard.append([InlineKeyboardButton(Script.BTN_WEB_GUARD.format(status=guard_status), callback_data="set_web_guard")])
     keyboard.append([InlineKeyboardButton(Script.BTN_PROTECT_CONTENT.format(status=protect_status), callback_data="set_protect")])
-    
     keyboard.append([InlineKeyboardButton(Script.BTN_PREMIUM_SETTINGS, callback_data="prem_settings_menu")])
-        
     keyboard.append([InlineKeyboardButton(Script.BTN_CLOSE_PANEL, callback_data="close_settings")])
     return InlineKeyboardMarkup(keyboard)
 
@@ -49,19 +47,24 @@ async def settings_callbacks(client: Client, query: CallbackQuery):
     action = query.data
     
     if action == "prem_settings_menu":
-        kb = [
-            # 🚀 FIX: CLEAN SMALL CAPS
-            [InlineKeyboardButton("💳 sᴇᴛ ᴘᴀʏᴍᴇɴᴛ ɪɴғᴏ", callback_data="set_pay_help")],
-            [InlineKeyboardButton("🔙 ʙᴀᴄᴋ", callback_data="back_to_main_settings")]
-        ]
-        text = "💎 **ᴘʀᴇᴍɪᴜᴍ ᴄᴏɴᴛʀᴏʟ ᴘᴀɴᴇʟ**\n\n• Use `/set_pay <text>` to update Payment Details.\n• Use `/add_prem <user_id> <days> <limit>` to give premium.\n• Use `/del_prem <user_id>` to remove."
+        kb = [[InlineKeyboardButton("🔙 ʙᴀᴄᴋ", callback_data="back_to_main_settings")]]
+        
+        # 🚀 UPDATE: Added Help text for all new commands
+        text = (
+            "💎 **ᴘʀᴇᴍɪᴜᴍ ᴄᴏɴᴛʀᴏʟ ᴘᴀɴᴇʟ**\n\n"
+            "**1. Button Links:**\n"
+            "• `/set_owner_link https://t.me/xx`\n"
+            "• `/set_group_link https://t.me/xx`\n\n"
+            "**2. Global Free Limit:**\n"
+            "• `/set_free_limit 5` *(0 to turn off)*\n\n"
+            "**3. Manage Users:**\n"
+            "• `/add_prem <user_id> <days> <limit>`\n"
+            "• `/del_prem <user_id>`"
+        )
         return await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(kb))
         
     elif action == "back_to_main_settings":
         return await query.message.edit_text(Script.SETTINGS_MSG, reply_markup=get_settings_keyboard(settings))
-        
-    elif action == "set_pay_help":
-        return await query.answer("Type /set_pay followed by your Bkash/Nagad details in normal message to update!", show_alert=True)
 
     if action == "set_sl_status":
         new_status = not settings.get('shortlink_status', False)
