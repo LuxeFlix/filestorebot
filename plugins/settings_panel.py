@@ -27,7 +27,6 @@ def get_settings_keyboard(settings):
     keyboard.append([InlineKeyboardButton(Script.BTN_WEB_GUARD.format(status=guard_status), callback_data="set_web_guard")])
     keyboard.append([InlineKeyboardButton(Script.BTN_PROTECT_CONTENT.format(status=protect_status), callback_data="set_protect")])
     
-    # 🚀 NEW: Add Premium Settings Menu Button
     keyboard.append([InlineKeyboardButton(Script.BTN_PREMIUM_SETTINGS, callback_data="prem_settings_menu")])
         
     keyboard.append([InlineKeyboardButton(Script.BTN_CLOSE_PANEL, callback_data="close_settings")])
@@ -49,13 +48,13 @@ async def settings_callbacks(client: Client, query: CallbackQuery):
     settings = await db.get_settings()
     action = query.data
     
-    # 🚀 Premium Panel Controls
     if action == "prem_settings_menu":
         kb = [
-            [InlineKeyboardButton("💳 s ᴇ ᴛ  ᴘ ᴀ ʏ ᴍ ᴇ ɴ ᴛ  ɪ ɴ ғ ᴏ", callback_data="set_pay_help")],
-            [InlineKeyboardButton("🔙 ʙ ᴀ ᴄ ᴋ", callback_data="back_to_main_settings")]
+            # 🚀 FIX: CLEAN SMALL CAPS
+            [InlineKeyboardButton("💳 sᴇᴛ ᴘᴀʏᴍᴇɴᴛ ɪɴғᴏ", callback_data="set_pay_help")],
+            [InlineKeyboardButton("🔙 ʙᴀᴄᴋ", callback_data="back_to_main_settings")]
         ]
-        text = "💎 **ᴘ ʀ ᴇ ᴍ ɪ ᴜ ᴍ  ᴄ ᴏ ɴ ᴛ ʀ ᴏ ʟ  ᴘ ᴀ ɴ ᴇ ʟ**\n\n• Use `/set_pay <text>` to update Payment Details.\n• Use `/add_prem <user_id> <days> <limit>` to give premium.\n• Use `/del_prem <user_id>` to remove."
+        text = "💎 **ᴘʀᴇᴍɪᴜᴍ ᴄᴏɴᴛʀᴏʟ ᴘᴀɴᴇʟ**\n\n• Use `/set_pay <text>` to update Payment Details.\n• Use `/add_prem <user_id> <days> <limit>` to give premium.\n• Use `/del_prem <user_id>` to remove."
         return await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(kb))
         
     elif action == "back_to_main_settings":
@@ -64,7 +63,6 @@ async def settings_callbacks(client: Client, query: CallbackQuery):
     elif action == "set_pay_help":
         return await query.answer("Type /set_pay followed by your Bkash/Nagad details in normal message to update!", show_alert=True)
 
-    # Normal Controls
     if action == "set_sl_status":
         new_status = not settings.get('shortlink_status', False)
         await db.update_settings('shortlink_status', new_status)
