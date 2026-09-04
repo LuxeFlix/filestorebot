@@ -100,9 +100,9 @@ class Script:
     BTN_OPEN_LINK = "▶️ OPEN LINK"
     BTN_TUTORIAL = "🎥 TUTORIAL"
     
-    # 🚀 NEW: Small Caps Premium Buttons
-    BTN_BUY_PREMIUM = "💎 ʙ ᴜ ʏ  ᴘ ʀ ᴇ ᴍ ɪ ᴜ ᴍ"
-    BTN_PREMIUM_SETTINGS = "💎 ᴘ ʀ ᴇ ᴍ ɪ ᴜ ᴍ  s ᴇ ᴛ ᴛ ɪ ɴ ɢ s"
+    # 🚀 FIX: CLEAN SMALL CAPS NO EXTRA SPACES
+    BTN_BUY_PREMIUM = "💎 ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ"
+    BTN_PREMIUM_SETTINGS = "💎 ᴘʀᴇᴍɪᴜᴍ sᴇᴛᴛɪɴɢs"
     
     BTN_CHECK_JOINED = "🔄 Check Joined"
     BTN_JOIN_CHANNEL = "🟢 Join Channel {idx}"
