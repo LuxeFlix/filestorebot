@@ -360,8 +360,13 @@ async def start_command(client: Client, message: Message):
     ])
     
     start_pic = getattr(Config, "START_PIC", None)
+    
+    # 🚀 FIX: Fallback to text message if image fetching fails
     if start_pic:
-        await message.reply_photo(photo=start_pic, caption=welcome_text, reply_markup=buttons, parse_mode=ParseMode.HTML)
+        try:
+            await message.reply_photo(photo=start_pic, caption=welcome_text, reply_markup=buttons, parse_mode=ParseMode.HTML)
+        except Exception:
+            await message.reply_text(welcome_text, reply_markup=buttons, parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
     else:
         await message.reply_text(welcome_text, reply_markup=buttons, parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
 
@@ -432,7 +437,6 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
         except Exception: pass
 
     elif action == "for_more_menu":
-        # 🚀 HIDDEN LINKS WITH CONFIG
         text = Script.FOR_MORE_MSG.format(
             updates=getattr(Config, "UPDATES_LINK", "https://t.me/"),
             movies=getattr(Config, "MOVIES_LINK", "https://t.me/"),
@@ -450,7 +454,6 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
         except Exception: pass
 
     elif action == "about_menu":
-        # 🚀 HIDDEN LINKS WITH CONFIG
         text = Script.ABOUT_MSG.format(
             bot_name=bot_name,
             updates=getattr(Config, "UPDATES_LINK", "https://t.me/"),
