@@ -20,7 +20,6 @@ class Script:
     GENERATING_SECURE_LINK = "⏳ **Generating highly secure link...**"
     VERIFY_REQUIRED_UI = "📊 **HEY {mention},**\n\n‼️ **GET ALL FILES IN A SINGLE LINK** ‼️\n\n➪ **YOUR LINK IS READY, KINDLY CLICK ON OPEN LINK BUTTON..**"
     
-    # 🚀 Web Guard Specific Texts (Signature Validation)
     GUARD_BANNED = "🚫 **BYPASS TOOL DETECTED!**\nঅবৈধ সিগনেচার! আপনি ম্যানুয়ালি লিংক বাইপাস করার চেষ্টা করেছেন।"
     
     # ================= Start & FSub =================
@@ -100,7 +99,11 @@ class Script:
     BTN_CONTACT_SUPPORT = "🛠 Contact Support"
     BTN_OPEN_LINK = "▶️ OPEN LINK"
     BTN_TUTORIAL = "🎥 TUTORIAL"
-    BTN_BUY_PREMIUM = "💎 BUY PREMIUM"
+    
+    # 🚀 NEW: Small Caps Premium Buttons
+    BTN_BUY_PREMIUM = "💎 ʙ ᴜ ʏ  ᴘ ʀ ᴇ ᴍ ɪ ᴜ ᴍ"
+    BTN_PREMIUM_SETTINGS = "💎 ᴘ ʀ ᴇ ᴍ ɪ ᴜ ᴍ  s ᴇ ᴛ ᴛ ɪ ɴ ɢ s"
+    
     BTN_CHECK_JOINED = "🔄 Check Joined"
     BTN_JOIN_CHANNEL = "🟢 Join Channel {idx}"
     BTN_ORIGINAL_LINK = "🌐 Original Link"
@@ -111,5 +114,5 @@ class Script:
     BTN_SL_CREDIT = "🎁 Credits: {creds} Files 🔄"
     BTN_BYPASS_TIME = "🛡 Bypass Time Guard: {time}s 🔄"
     BTN_WEB_GUARD = "🔥 Cloudflare Web Guard: {status}"
-    BTN_PROTECT_CONTENT = "🔒 Protect Content: {status}"  # 🚀 NEW: Protect Content Button String
+    BTN_PROTECT_CONTENT = "🔒 Protect Content: {status}"
     BTN_CLOSE_PANEL = "❌ Close Panel"
