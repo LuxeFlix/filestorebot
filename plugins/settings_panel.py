@@ -11,8 +11,10 @@ def get_settings_keyboard(settings):
     bypass_cred = settings.get('bypass_credits', 3)
     bypass_time = settings.get('bypass_time', 15)
     
-    # 🚀 Fetch Guard Status
     guard_status = "🟢 ON" if settings.get('web_guard', False) else "🔴 OFF"
+    
+    # 🚀 NEW: Fetch Protect Content Status
+    protect_status = "🟢 ON" if settings.get('protect_content', False) else "🔴 OFF"
     
     keyboard = [
         [InlineKeyboardButton(Script.BTN_SL_STATUS.format(status=sl_status), callback_data="set_sl_status"),
@@ -25,9 +27,10 @@ def get_settings_keyboard(settings):
         keyboard.append([InlineKeyboardButton(Script.BTN_SL_CREDIT.format(creds=bypass_cred), callback_data="set_sl_cred")])
         
     keyboard.append([InlineKeyboardButton(Script.BTN_BYPASS_TIME.format(time=bypass_time), callback_data="set_bypass_time")])
-    
-    # 🚀 Add Web Guard Button
     keyboard.append([InlineKeyboardButton(Script.BTN_WEB_GUARD.format(status=guard_status), callback_data="set_web_guard")])
+    
+    # 🚀 NEW: Add Protect Content Toggle Button
+    keyboard.append([InlineKeyboardButton(Script.BTN_PROTECT_CONTENT.format(status=protect_status), callback_data="set_protect")])
         
     keyboard.append([InlineKeyboardButton(Script.BTN_CLOSE_PANEL, callback_data="close_settings")])
     return InlineKeyboardMarkup(keyboard)
@@ -40,7 +43,8 @@ async def settings_command(client: Client, message: Message):
     settings = await db.get_settings()
     await message.reply_text(Script.SETTINGS_MSG, reply_markup=get_settings_keyboard(settings))
 
-@Client.on_callback_query(filters.regex(r"^set_sl_|^set_bypass_|^set_web_"))
+# 🚀 FIX: Regex updated to handle set_protect
+@Client.on_callback_query(filters.regex(r"^set_sl_|^set_bypass_|^set_web_|^set_protect"))
 async def settings_callbacks(client: Client, query: CallbackQuery):
     if query.from_user.id != Config.OWNER_ID:
         return await query.answer(Script.NOT_OWNER_ALERT, show_alert=True)
@@ -75,10 +79,14 @@ async def settings_callbacks(client: Client, query: CallbackQuery):
         next_idx = (times.index(current) + 1) % len(times) if current in times else 0
         await db.update_settings('bypass_time', times[next_idx])
         
-    # 🚀 Handle Web Guard Toggle
     elif action == "set_web_guard":
         new_status = not settings.get('web_guard', False)
         await db.update_settings('web_guard', new_status)
+        
+    # 🚀 NEW: Handle Protect Content Toggle
+    elif action == "set_protect":
+        new_status = not settings.get('protect_content', False)
+        await db.update_settings('protect_content', new_status)
         
     updated_settings = await db.get_settings()
     await query.message.edit_reply_markup(get_settings_keyboard(updated_settings))
