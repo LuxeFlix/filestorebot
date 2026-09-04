@@ -32,7 +32,7 @@ def get_msg_id(message: Message):
 async def start_batch_command(client: Client, message: Message):
     user_id = message.from_user.id
     if not await db.is_admin(user_id):
-        return # 🚀 SILENT IGNORE: স্প্যামারদের হাত থেকে বাঁচাতে পুরোপুরি সাইলেন্ট
+        return # 🚀 SILENT IGNORE
     
     settings = await db.get_settings()
     if not settings.get('active_db'):
@@ -63,8 +63,7 @@ async def message_handler(client: Client, message: Message):
 
     is_admin = await db.is_admin(user_id)
     if not is_admin:
-        # 🚀 100% SILENT IGNORE: সাধারণ ইউজার কোনো ফাইল/লিংক পাঠালে বট কিছুই বলবে না
-        return
+        return # 🚀 100% SILENT IGNORE (কোনো ওয়ার্নিং মেসেজ দেবে না)
 
     settings = await db.get_settings()
     active_db = settings.get('active_db')
