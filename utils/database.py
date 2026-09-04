@@ -35,6 +35,43 @@ class Database:
             self.db3 = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_3, **pool_settings)[Config.MONGO_DB_NAME]
             self.files_col3 = self.db3.files
 
+    # 🚀 NEW: DB Stats Fetcher
+    async def get_db_stats(self):
+        stats = {}
+        try:
+            db1_stats = await self.db1.command("dbstats")
+            stats['db1'] = {'dataSize': db1_stats.get('dataSize', 0)}
+        except Exception: pass
+        
+        if self.files_col2:
+            try:
+                db2_stats = await self.db2.command("dbstats")
+                stats['db2'] = {'dataSize': db2_stats.get('dataSize', 0)}
+            except Exception: pass
+            
+        if self.files_col3:
+            try:
+                db3_stats = await self.db3.command("dbstats")
+                stats['db3'] = {'dataSize': db3_stats.get('dataSize', 0)}
+            except Exception: pass
+            
+        return stats
+
+    # 🚀 NEW: Permanent File Deletion
+    async def delete_file(self, unique_id: str):
+        res1 = await self.files_col1.delete_one({'_id': unique_id})
+        if res1.deleted_count > 0: return True
+        
+        if self.files_col2:
+            res2 = await self.files_col2.delete_one({'_id': unique_id})
+            if res2.deleted_count > 0: return True
+            
+        if self.files_col3:
+            res3 = await self.files_col3.delete_one({'_id': unique_id})
+            if res3.deleted_count > 0: return True
+            
+        return False
+
     async def add_premium(self, user_id: int, time_seconds: int, daily_limit: int = 0):
         expire_at = int(time.time()) + time_seconds
         await self.premium_col.update_one(
