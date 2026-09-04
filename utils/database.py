@@ -85,7 +85,6 @@ class Database:
         )
         return True
 
-    # 🚀 NEW: Free User Daily Limit Tracking
     async def check_and_use_free_limit(self, user_id: int, limit: int):
         if limit <= 0: return False
         
@@ -241,7 +240,6 @@ class Database:
             'shortener_api': Config.SHORTENER_API,
             'tutorial_link': Config.TUTORIAL_LINK,
             'protect_content': False,
-            # 🚀 NEW: Setup Admin defaults for Links and Free Limit
             'owner_link': '',
             'group_link': '',
             'free_daily_limit': 0,
@@ -250,7 +248,8 @@ class Database:
                 'plan2': {'name': '1 ᴍᴏɴᴛʜ ᴘʀᴏ', 'days': 30, 'price': 50, 'limit': 0},
                 'plan3': {'name': '3 ᴍᴏɴᴛʜs ᴘʀᴏ', 'days': 90, 'price': 120, 'limit': 0},
                 'plan4': {'name': 'ʟɪғᴇᴛɪᴍᴇ ᴘʀᴏ', 'days': 36500, 'price': 999, 'limit': 0}
-            }
+            },
+            'payment_info': 'Sᴇɴᴅ ᴍᴏɴᴇʏ ᴛᴏ Bᴋᴀsʜ/Nᴀɢᴀᴅ ᴀɴᴅ ᴄᴏɴᴛᴀᴄᴛ Aᴅᴍɪɴ ᴡɪᴛʜ Sᴄʀᴇᴇɴsʜᴏᴛ.'
         }
         
         if settings:
