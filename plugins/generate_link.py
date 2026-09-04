@@ -46,7 +46,8 @@ async def cancel_batch(client: Client, message: Message):
         del BATCH_STATE[user_id]
         await message.reply_text(Script.BATCH_CANCEL)
 
-ALL_COMMANDS = ["start", "set_db", "set_log", "add_admin", "del_admin", "mode", "batch", "cancel", "add_fsub", "del_fsub", "fsub_list", "req_fsub", "auto_delete", "stats", "broadcast", "dbroadcast", "ban", "unban", "unban_all", "settings", "add_credit", "remove_credit", "shortlink", "set_shortlink", "add_premium", "remove_premium", "set_tutorial"]
+# 🚀 FIX: "set_delete" কমান্ডটি ALL_COMMANDS লিস্টে যুক্ত করা হয়েছে
+ALL_COMMANDS = ["start", "set_db", "set_log", "add_admin", "del_admin", "mode", "batch", "cancel", "add_fsub", "del_fsub", "fsub_list", "req_fsub", "auto_delete", "set_delete", "stats", "broadcast", "dbroadcast", "ban", "unban", "unban_all", "settings", "add_credit", "remove_credit", "shortlink", "set_shortlink", "add_premium", "remove_premium", "set_tutorial"]
 
 @Client.on_message(filters.private & ~filters.command(ALL_COMMANDS))
 async def message_handler(client: Client, message: Message):
@@ -91,7 +92,6 @@ async def message_handler(client: Client, message: Message):
             wait_msg = await message.reply_text(Script.GEN_BATCH_LINK_WAIT)
             try:
                 unique_id = await db.save_batch(first_id, last_id, active_db)
-                # 🚀 CUSTOM_PREFIX রিমুভ করে ডাইরেক্ট unique_id ব্যবহার করা হয়েছে
                 custom_link = f"{Config.CUSTOM_DOMAIN}?start={unique_id}"
                 
                 total_files = (last_id - first_id) + 1
