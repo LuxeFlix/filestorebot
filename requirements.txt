@@ -1,6 +1,7 @@
 kurigram
 tgcrypto
-flask
 motor
 python-dotenv
 aiohttp
+uvloop
+orjson
