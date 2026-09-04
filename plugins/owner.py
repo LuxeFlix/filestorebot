@@ -2,6 +2,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 from config import Config
 from utils.database import db
+from script import Script
 
 @Client.on_message(filters.command("add_admin") & filters.private)
 async def add_new_admin(client: Client, message: Message):
@@ -55,7 +56,7 @@ async def toggle_bot_mode(client: Client, message: Message):
 @Client.on_message(filters.command("add_fsub") & filters.private)
 async def add_fsub_channel(client: Client, message: Message):
     if message.from_user.id != Config.OWNER_ID:
-        return await message.reply_text("⚠️ **Warning:** শুধুমাত্র Owner এই কমান্ড ব্যবহার করতে পারবেন!")
+        return await message.reply_text(Script.NOT_OWNER_WARN)
         
     if len(message.command) < 2:
         return await message.reply_text("❌ **সঠিক নিয়ম:** `/add_fsub -100xxxxxxx`")
@@ -74,7 +75,7 @@ async def add_fsub_channel(client: Client, message: Message):
 @Client.on_message(filters.command("del_fsub") & filters.private)
 async def remove_fsub_channel(client: Client, message: Message):
     if message.from_user.id != Config.OWNER_ID:
-        return await message.reply_text("⚠️ **Warning:** শুধুমাত্র Owner এই কমান্ড ব্যবহার করতে পারবেন!")
+        return await message.reply_text(Script.NOT_OWNER_WARN)
         
     if len(message.command) < 2:
         return await message.reply_text("❌ **সঠিক নিয়ম:** `/del_fsub -100xxxxxxx`")
@@ -102,7 +103,7 @@ async def list_fsub_channels(client: Client, message: Message):
 @Client.on_message(filters.command("req_fsub") & filters.private)
 async def toggle_req_fsub(client: Client, message: Message):
     if message.from_user.id != Config.OWNER_ID:
-        return await message.reply_text("⚠️ **Warning:** শুধুমাত্র Owner এই কমান্ড ব্যবহার করতে পারবেন!")
+        return await message.reply_text(Script.NOT_OWNER_WARN)
 
     if len(message.command) < 2 or message.command[1].lower() not in ['on', 'off']:
         return await message.reply_text("❌ **সঠিক নিয়ম:** `/req_fsub on` অথবা `/req_fsub off`")
@@ -115,22 +116,22 @@ async def toggle_req_fsub(client: Client, message: Message):
     else:
         await message.reply_text("❌ **Request to Join is now OFF!**\nইউজাররা সরাসরি জয়েন করতে পারবে।")
 
-# 🚀 NEW: Auto Delete Setup
-@Client.on_message(filters.command("auto_delete") & filters.private)
+# 🚀 SECURE UPDATE: /set_delete command properly configured with script.py
+@Client.on_message(filters.command(["auto_delete", "set_delete"]) & filters.private)
 async def toggle_auto_delete(client: Client, message: Message):
     if message.from_user.id != Config.OWNER_ID:
-        return await message.reply_text("⚠️ **Warning:** শুধুমাত্র Owner এই কমান্ড ব্যবহার করতে পারবেন!")
+        return await message.reply_text(Script.NOT_OWNER_WARN)
 
     if len(message.command) < 2:
-        return await message.reply_text("❌ **সঠিক নিয়ম:** `/auto_delete 10` (মিনিট) অথবা `/auto_delete off`")
+        return await message.reply_text(Script.SET_DELETE_USAGE)
         
     arg = message.command[1].lower()
     if arg == 'off':
         await db.update_settings('auto_delete', 0)
-        await message.reply_text("✅ **Auto Delete is now OFF!**\nফাইল আর অটো-ডিলিট হবে না।")
+        await message.reply_text(Script.SET_DELETE_OFF)
     elif arg.isdigit():
         mins = int(arg)
         await db.update_settings('auto_delete', mins)
-        await message.reply_text(f"✅ **Auto Delete is now ON!**\nইউজারদের দেওয়া ফাইল **{mins} মিনিট** পর ডিলিট হয়ে যাবে।")
+        await message.reply_text(Script.SET_DELETE_ON.format(mins=mins))
     else:
-        await message.reply_text("❌ **সঠিক নিয়ম:** `/auto_delete 10` অথবা `/auto_delete off`")
+        await message.reply_text(Script.SET_DELETE_USAGE)
