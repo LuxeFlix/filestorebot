@@ -1,7 +1,7 @@
 import re
 import time
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, LinkPreviewOptions
 from config import Config
 from utils.database import db
 from script import Script
@@ -18,8 +18,12 @@ def get_file_info(message):
     return None, None, ""
 
 def get_msg_id(message: Message):
-    if message.forward_from_message_id:
+    # 🚀 FIX: Kurigram Deprecated Warning Solved
+    if hasattr(message, "forward_origin") and message.forward_origin and hasattr(message.forward_origin, 'message_id'):
+        return message.forward_origin.message_id
+    elif hasattr(message, "forward_from_message_id") and message.forward_from_message_id:
         return message.forward_from_message_id
+        
     if message.text:
         match = re.search(r"t\.me/(?:c/)?(?:[a-zA-Z0-9_]+|-?\d+)/(\d+)", message.text)
         if match:
@@ -46,7 +50,6 @@ async def cancel_batch(client: Client, message: Message):
         del BATCH_STATE[user_id]
         await message.reply_text(Script.BATCH_CANCEL)
 
-# 🚀 FIX: "set_delete" কমান্ডটি ALL_COMMANDS লিস্টে যুক্ত করা হয়েছে
 ALL_COMMANDS = ["start", "set_db", "set_log", "add_admin", "del_admin", "mode", "batch", "cancel", "add_fsub", "del_fsub", "fsub_list", "req_fsub", "auto_delete", "set_delete", "stats", "broadcast", "dbroadcast", "ban", "unban", "unban_all", "settings", "add_credit", "remove_credit", "shortlink", "set_shortlink", "add_premium", "remove_premium", "set_tutorial"]
 
 @Client.on_message(filters.private & ~filters.command(ALL_COMMANDS))
@@ -97,7 +100,7 @@ async def message_handler(client: Client, message: Message):
                 total_files = (last_id - first_id) + 1
                 reply_text = Script.BATCH_SUCCESS_LINK.format(total_files=total_files, custom_link=custom_link)
                 buttons = InlineKeyboardMarkup([[InlineKeyboardButton(Script.BTN_ORIGINAL_LINK, url=custom_link, style="success")]])
-                await wait_msg.edit_text(reply_text, reply_markup=buttons, disable_web_page_preview=True)
+                await wait_msg.edit_text(reply_text, reply_markup=buttons, link_preview_options=LinkPreviewOptions(is_disabled=True))
                 
                 log_channel = settings.get('log_channel')
                 if log_channel:
@@ -115,7 +118,8 @@ async def message_handler(client: Client, message: Message):
     if not file_id:
         db_msg_id = get_msg_id(message)
         if db_msg_id:
-            wait_msg = await message.reply_text(Script.GEN_DB_LINK_WAIT, quote=True)
+            # 🚀 FIX: quote=True রিপ্লেস করা হয়েছে
+            wait_msg = await message.reply_text(Script.GEN_DB_LINK_WAIT, reply_to_message_id=message.id)
             try:
                 db_msg = await client.get_messages(active_db, db_msg_id)
                 f_id, f_uniq, cap = get_file_info(db_msg)
@@ -127,7 +131,7 @@ async def message_handler(client: Client, message: Message):
             
             reply_text = Script.SINGLE_SUCCESS_LINK.format(custom_link=custom_link)
             buttons = InlineKeyboardMarkup([[InlineKeyboardButton(Script.BTN_ORIGINAL_LINK, url=custom_link, style="success")]])
-            await wait_msg.edit_text(reply_text, reply_markup=buttons, disable_web_page_preview=True)
+            await wait_msg.edit_text(reply_text, reply_markup=buttons, link_preview_options=LinkPreviewOptions(is_disabled=True))
             
             log_channel = settings.get('log_channel')
             if log_channel:
@@ -137,13 +141,13 @@ async def message_handler(client: Client, message: Message):
                     pass
         return
         
-    wait_msg = await message.reply_text(Script.GEN_LINK_WAIT, quote=True)
+    wait_msg = await message.reply_text(Script.GEN_LINK_WAIT, reply_to_message_id=message.id)
     existing_file = await db.check_file_exists(file_unique_id)
     if existing_file:
         custom_link = f"{Config.CUSTOM_DOMAIN}?start={existing_file['_id']}"
         reply_text = Script.FILE_EXISTS.format(custom_link=custom_link)
         buttons = InlineKeyboardMarkup([[InlineKeyboardButton(Script.BTN_ORIGINAL_LINK, url=custom_link, style="success")]])
-        await wait_msg.edit_text(reply_text, reply_markup=buttons, disable_web_page_preview=True)
+        await wait_msg.edit_text(reply_text, reply_markup=buttons, link_preview_options=LinkPreviewOptions(is_disabled=True))
         return
 
     buttons = InlineKeyboardMarkup([[InlineKeyboardButton(Script.BTN_GENERATE_LINK, callback_data=f"single_{message.id}", style="primary")]])
@@ -162,8 +166,19 @@ async def generate_single_link(client: Client, query):
         file_id, file_unique_id, caption = get_file_info(original_msg)
         
         final_msg_id = None
-        if original_msg.forward_from_chat and original_msg.forward_from_chat.id == active_db:
-            final_msg_id = original_msg.forward_from_message_id
+        forward_chat_id = None
+        
+        # 🚀 FIX: Deprecated forward_from_chat 
+        if hasattr(original_msg, "forward_origin") and original_msg.forward_origin and hasattr(original_msg.forward_origin, 'chat'):
+            forward_chat_id = original_msg.forward_origin.chat.id
+        elif hasattr(original_msg, "forward_from_chat") and original_msg.forward_from_chat:
+            forward_chat_id = original_msg.forward_from_chat.id
+            
+        if forward_chat_id and forward_chat_id == active_db:
+            if hasattr(original_msg, "forward_origin") and original_msg.forward_origin and hasattr(original_msg.forward_origin, 'message_id'):
+                final_msg_id = original_msg.forward_origin.message_id
+            elif hasattr(original_msg, "forward_from_message_id") and original_msg.forward_from_message_id:
+                final_msg_id = original_msg.forward_from_message_id
         
         if not final_msg_id:
             copied_msg = await original_msg.copy(chat_id=active_db)
@@ -174,7 +189,7 @@ async def generate_single_link(client: Client, query):
         
         reply_text = Script.SAVED_IN_DB.format(custom_link=custom_link)
         buttons = InlineKeyboardMarkup([[InlineKeyboardButton(Script.BTN_ORIGINAL_LINK, url=custom_link, style="success")]])
-        await wait_msg.edit_text(reply_text, reply_markup=buttons, disable_web_page_preview=True)
+        await wait_msg.edit_text(reply_text, reply_markup=buttons, link_preview_options=LinkPreviewOptions(is_disabled=True))
         
         log_channel = settings.get('log_channel')
         if log_channel:
