@@ -6,7 +6,14 @@ from config import Config
 
 class Database:
     def __init__(self):
-        self.client1 = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_1)
+        # 🚀 RAM সেভ এবং হাই-স্পিড ডেটা রিড/রাইট করার জন্য Connection Pooling
+        pool_settings = {
+            "maxPoolSize": 50,
+            "minPoolSize": 5,
+            "maxIdleTimeMS": 50000
+        }
+        
+        self.client1 = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_1, **pool_settings)
         self.db1 = self.client1[Config.MONGO_DB_NAME]
         self.files_col1 = self.db1.files
         
@@ -24,12 +31,12 @@ class Database:
 
         self.files_col2 = None
         if Config.MONGO_URI_2:
-            self.db2 = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_2)[Config.MONGO_DB_NAME]
+            self.db2 = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_2, **pool_settings)[Config.MONGO_DB_NAME]
             self.files_col2 = self.db2.files
             
         self.files_col3 = None
         if Config.MONGO_URI_3:
-            self.db3 = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_3)[Config.MONGO_DB_NAME]
+            self.db3 = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_3, **pool_settings)[Config.MONGO_DB_NAME]
             self.files_col3 = self.db3.files
 
     async def add_premium(self, user_id: int, time_seconds: int):
@@ -175,7 +182,6 @@ class Database:
             'bypass_credits': 3,
             'shortener_url': Config.SHORTENER_URL,
             'shortener_api': Config.SHORTENER_API,
-            # 🚀 NEW: DB connected tutorial link
             'tutorial_link': Config.TUTORIAL_LINK
         }
         
@@ -195,7 +201,8 @@ class Database:
     async def update_settings(self, key: str, value):
         await self.settings_col.update_one({'_id': 'bot_settings'}, {'$set': {key: value}}, upsert=True)
 
-    async def generate_unique_id(self, length=8):
+    # 🚀 SECURE UPDATE: Length changed to 50 for max security
+    async def generate_unique_id(self, length=50):
         characters = string.ascii_letters + string.digits
         while True:
             unique_id = ''.join(secrets.choice(characters) for _ in range(length))
