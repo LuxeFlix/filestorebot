@@ -21,7 +21,6 @@ async def show_premium_plans_cb(client: Client, query: CallbackQuery):
     text = generate_premium_text(settings)
     
     keyboard = [
-        # 🚀 NEW: Buy Now Button
         [InlineKeyboardButton(Script.BTN_BUY_NOW, callback_data="buy_premium_menu")],
         [InlineKeyboardButton("❌ ᴄʟᴏsᴇ", callback_data="close_settings")]
     ]
@@ -39,7 +38,6 @@ async def plan_command(client: Client, message: Message):
     ]
     await message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
 
-# 🚀 NEW: Dynamic Buy Menu Handler
 @Client.on_callback_query(filters.regex("^buy_premium_menu$"))
 async def buy_premium_cb(client: Client, query: CallbackQuery):
     settings = await db.get_settings()
@@ -55,6 +53,7 @@ async def buy_premium_cb(client: Client, query: CallbackQuery):
         
     keyboard.append([InlineKeyboardButton("🔙 ʙᴀᴄᴋ", callback_data="show_premium_plans")])
     await query.message.edit_text(Script.BUY_PREMIUM_MSG, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
+    await query.answer()
 
 @Client.on_message(filters.command("buy"))
 async def buy_command(client: Client, message: Message):
@@ -111,7 +110,7 @@ async def add_premium_cmd(client: Client, message: Message):
     if message.from_user.id != Config.OWNER_ID: return
     parts = message.command
     if len(parts) < 3:
-        return await message.reply_text("❌ <b>sʏɴᴛᴀx :</b> `/add_prem <user_id> <days> <daily_limit_number>`\n<i>(Use 0 for Unlimited)</i>\n\nExample: `/add_prem 12345 7 5`", parse_mode=ParseMode.HTML)
+        return await message.reply_text("❌ <b>sʏɴᴛᴀx :</b> <code>/add_prem [user_id] [days] [daily_limit_number]</code>\n<i>(Use 0 for Unlimited)</i>\n\nExample: <code>/add_prem 12345 7 5</code>", parse_mode=ParseMode.HTML)
         
     try:
         user_id = int(parts[1])
@@ -121,7 +120,7 @@ async def add_premium_cmd(client: Client, message: Message):
         time_seconds = days * 24 * 60 * 60
         await db.add_premium(user_id, time_seconds, limit)
         
-        await message.reply_text(f"✅ <b>ᴘʀᴇᴍɪᴜᴍ ᴀᴅᴅᴇᴅ !</b>\n\n👤 User: `{user_id}`\n⏳ Days: {days}\n📈 Daily Limit: {limit if limit > 0 else 'Unlimited'}", parse_mode=ParseMode.HTML)
+        await message.reply_text(f"✅ <b>ᴘʀᴇᴍɪᴜᴍ ᴀᴅᴅᴇᴅ !</b>\n\n👤 User: <code>{user_id}</code>\n⏳ Days: {days}\n📈 Daily Limit: {limit if limit > 0 else 'Unlimited'}", parse_mode=ParseMode.HTML)
         
         try:
             await client.send_message(user_id, f"🎉 <b>Cᴏɴɢʀᴀᴛᴜʟᴀᴛɪᴏɴs!</b>\n\nYour Premium Subscription has been activated for {days} days!\nEnjoy seamless downloading.", parse_mode=ParseMode.HTML)
@@ -134,11 +133,11 @@ async def add_premium_cmd(client: Client, message: Message):
 async def del_premium_cmd(client: Client, message: Message):
     if message.from_user.id != Config.OWNER_ID: return
     if len(message.command) < 2:
-        return await message.reply_text("❌ <b>sʏɴᴛᴀx :</b> `/del_prem <user_id>`", parse_mode=ParseMode.HTML)
+        return await message.reply_text("❌ <b>sʏɴᴛᴀx :</b> <code>/del_prem [user_id]</code>", parse_mode=ParseMode.HTML)
         
     try:
         user_id = int(message.command[1])
         await db.remove_premium(user_id)
-        await message.reply_text(f"🗑 <b>ᴘʀᴇᴍɪᴜᴍ ʀᴇᴍᴏᴠᴇᴅ !</b>\n👤 User: `{user_id}`", parse_mode=ParseMode.HTML)
+        await message.reply_text(f"🗑 <b>ᴘʀᴇᴍɪᴜᴍ ʀᴇᴍᴏᴠᴇᴅ !</b>\n👤 User: <code>{user_id}</code>", parse_mode=ParseMode.HTML)
     except ValueError:
         pass
