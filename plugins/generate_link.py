@@ -7,7 +7,6 @@ from utils.database import db
 from script import Script
 
 BATCH_STATE = {}
-NON_ADMIN_WARN_CACHE = {}
 
 def get_file_info(message):
     if message.media:
@@ -33,7 +32,7 @@ def get_msg_id(message: Message):
 async def start_batch_command(client: Client, message: Message):
     user_id = message.from_user.id
     if not await db.is_admin(user_id):
-        return await message.reply_text(Script.NOT_ADMIN_WARN)
+        return # 🚀 SILENT IGNORE: স্প্যামারদের হাত থেকে বাঁচাতে পুরোপুরি সাইলেন্ট
     
     settings = await db.get_settings()
     if not settings.get('active_db'):
@@ -64,11 +63,7 @@ async def message_handler(client: Client, message: Message):
 
     is_admin = await db.is_admin(user_id)
     if not is_admin:
-        if message.media or message.forward_from_chat:
-            now = time.time()
-            if now - NON_ADMIN_WARN_CACHE.get(user_id, 0) > 60:
-                await message.reply_text(Script.NOT_ADMIN_SIMPLE)
-                NON_ADMIN_WARN_CACHE[user_id] = now
+        # 🚀 100% SILENT IGNORE: সাধারণ ইউজার কোনো ফাইল/লিংক পাঠালে বট কিছুই বলবে না
         return
 
     settings = await db.get_settings()
