@@ -1,14 +1,20 @@
 import time
-from pyrogram.errors import UserNotParticipant
+import asyncio
+from pyrogram.errors import UserNotParticipant, FloodWait
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from config import Config
 from utils.database import db
 from script import Script
 
-# 🚀 SUPER ADVANCED AI CACHE: 6 Hours (21600 seconds)
-FSUB_CACHE = {}
-CACHE_TTL = 6 * 3600  # 6 ঘণ্টা
+# 🚀 1. Asynchronous Semaphore (অদৃশ্য ট্রাফিক পুলিশ)
+# একসাথে সর্বোচ্চ ৫টি রিকোয়েস্ট টেলিগ্রাম API তে যাবে, বাকিরা কয়েক মিলি-সেকেন্ড লাইনে থাকবে
+fsub_semaphore = asyncio.Semaphore(5)
+
+# 🚀 2. Anti-Spam Micro-Delay (Double-Click Protection)
+# ইউজার স্প্যাম ক্লিক করলে বট ৩ সেকেন্ডের জন্য রিকোয়েস্ট হোল্ড করবে
+MICRO_CACHE = {}
+MICRO_CACHE_TTL = 3  # মাত্র ৩ সেকেন্ড
 
 async def get_all_fsubs():
     db_fsubs = await db.get_fsub_channels()
@@ -17,30 +23,41 @@ async def get_all_fsubs():
     return all_fsubs
 
 async def check_fsub(client, user_id):
-    # 🚀 6-Hour Smart Cache Check
     current_time = time.time()
-    if user_id in FSUB_CACHE and current_time < FSUB_CACHE[user_id]:
-        return [] # ইউজার ৬ ঘণ্টার ক্যাশে আছে, কোনো চেকের দরকার নেই
+    
+    # 🚀 Double-Click Spam Protection
+    if user_id in MICRO_CACHE and current_time < MICRO_CACHE[user_id]:
+        pass # ৩ সেকেন্ডের মধ্যে একাধিক ক্লিক করলে নতুন করে API কল যাবে না
+    else:
+        MICRO_CACHE[user_id] = current_time + MICRO_CACHE_TTL
 
     channels = await get_all_fsubs()
     missing_channels = []
     
-    for chat_id in channels:
-        try:
-            member = await client.get_chat_member(chat_id, user_id)
-            if member.status in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED]:
+    # 🚀 Semaphore Block: ট্রাফিক কন্ট্রোল করে রিয়েল-টাইম চেক করবে
+    async with fsub_semaphore:
+        for chat_id in channels:
+            try:
+                member = await client.get_chat_member(chat_id, user_id)
+                if member.status in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED]:
+                    if not await db.has_join_request(user_id, chat_id):
+                        missing_channels.append(chat_id)
+            except UserNotParticipant:
                 if not await db.has_join_request(user_id, chat_id):
                     missing_channels.append(chat_id)
-        except UserNotParticipant:
-            if not await db.has_join_request(user_id, chat_id):
-                missing_channels.append(chat_id)
-        except Exception:
-            pass 
-            
-    # যদি সব চ্যানেলে জয়েন থাকে, তবে ইউজারের আইডি ৬ ঘণ্টার জন্য ব্রেইনে সেভ করে নেবে
-    if not missing_channels:
-        FSUB_CACHE[user_id] = current_time + CACHE_TTL
-        
+            except FloodWait as e:
+                # সেফটি ফিউজ: যদি কোনোভাবে লিমিট ক্রস হয়, বট নিজে থেকেই ওয়েট করবে
+                await asyncio.sleep(e.value + 0.5)
+                try:
+                    member = await client.get_chat_member(chat_id, user_id)
+                    if member.status in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED]:
+                        if not await db.has_join_request(user_id, chat_id):
+                            missing_channels.append(chat_id)
+                except Exception:
+                    missing_channels.append(chat_id)
+            except Exception:
+                pass 
+                
     return missing_channels
 
 async def get_fsub_keyboard(client, missing_channels, payload):
