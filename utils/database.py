@@ -35,7 +35,6 @@ class Database:
             self.db3 = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_3, **pool_settings)[Config.MONGO_DB_NAME]
             self.files_col3 = self.db3.files
 
-    # 🚀 SECURE: Update add_premium with daily limits
     async def add_premium(self, user_id: int, time_seconds: int, daily_limit: int = 0):
         expire_at = int(time.time()) + time_seconds
         await self.premium_col.update_one(
@@ -55,7 +54,6 @@ class Database:
             await self.remove_premium(user_id) 
         return False
 
-    # 🚀 NEW: Smart Tracking for Trial Limits (5 links per day logic)
     async def check_and_use_premium(self, user_id: int):
         doc = await self.premium_col.find_one({'_id': user_id})
         if not doc:
@@ -68,19 +66,18 @@ class Database:
             
         daily_limit = doc.get('daily_limit', 0)
         if daily_limit == 0:
-            return True # Unlimited Plan (Monthly/Lifetime)
+            return True
             
         from datetime import datetime
         today = datetime.now().strftime('%Y-%m-%d')
         last_date = doc.get('last_date', '')
         used_today = doc.get('used_today', 0)
         
-        # 🚀 Midnight Auto-Reset
         if last_date != today:
             used_today = 0
             
         if used_today >= daily_limit:
-            return False # Daily limit reached, user will see shortlink for today
+            return False
             
         await self.premium_col.update_one(
             {'_id': user_id},
@@ -218,12 +215,12 @@ class Database:
             'shortener_api': Config.SHORTENER_API,
             'tutorial_link': Config.TUTORIAL_LINK,
             'protect_content': False,
-            # 🚀 NEW: Integrated Default Premium Plans
+            # 🚀 FIX: Clean Small Caps Plans
             'premium_plans': {
-                'plan1': {'name': '1 ᴡ ᴇ ᴇ ᴋ  ᴛ ʀ ɪ ᴀ ʟ', 'days': 7, 'price': 20, 'limit': 5},
-                'plan2': {'name': '1 ᴍ ᴏ ɴ ᴛ ʜ  ᴘ ʀ ᴏ', 'days': 30, 'price': 50, 'limit': 0},
-                'plan3': {'name': '3 ᴍ ᴏ ɴ ᴛ ʜ s  ᴘ ʀ ᴏ', 'days': 90, 'price': 120, 'limit': 0},
-                'plan4': {'name': 'ʟ ɪ ғ ᴇ ᴛ ɪ ᴍ ᴇ  ᴘ ʀ ᴏ', 'days': 36500, 'price': 999, 'limit': 0}
+                'plan1': {'name': '1 ᴡᴇᴇᴋ ᴛʀɪᴀʟ', 'days': 7, 'price': 20, 'limit': 5},
+                'plan2': {'name': '1 ᴍᴏɴᴛʜ ᴘʀᴏ', 'days': 30, 'price': 50, 'limit': 0},
+                'plan3': {'name': '3 ᴍᴏɴᴛʜs ᴘʀᴏ', 'days': 90, 'price': 120, 'limit': 0},
+                'plan4': {'name': 'ʟɪғᴇᴛɪᴍᴇ ᴘʀᴏ', 'days': 36500, 'price': 999, 'limit': 0}
             },
             'payment_info': 'Sᴇɴᴅ ᴍᴏɴᴇʏ ᴛᴏ Bᴋᴀsʜ/Nᴀɢᴀᴅ ᴀɴᴅ ᴄᴏɴᴛᴀᴄᴛ Aᴅᴍɪɴ ᴡɪᴛʜ Sᴄʀᴇᴇɴsʜᴏᴛ.'
         }
