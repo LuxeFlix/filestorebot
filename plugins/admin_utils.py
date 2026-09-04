@@ -41,6 +41,21 @@ async def delete_broadcast_after_delay(client, chat_id, message_id, delay):
     except Exception:
         pass
 
+async def send_msg(user_id, b_msg, mins, client, is_dbroadcast):
+    try:
+        sent_m = await b_msg.copy(chat_id=user_id)
+        if is_dbroadcast:
+            asyncio.create_task(delete_broadcast_after_delay(client, user_id, sent_m.id, mins * 60))
+        return 200
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        sent_m = await b_msg.copy(chat_id=user_id)
+        if is_dbroadcast:
+            asyncio.create_task(delete_broadcast_after_delay(client, user_id, sent_m.id, mins * 60))
+        return 200
+    except Exception:
+        return 400
+
 @Client.on_message(filters.command("dbroadcast") & filters.private)
 async def dbroadcast_message(client: Client, message: Message):
     if message.from_user.id != Config.OWNER_ID:
@@ -57,26 +72,20 @@ async def dbroadcast_message(client: Client, message: Message):
     wait_msg = await message.reply_text(Script.DBROADCAST_START.format(mins=mins))
     b_msg = message.reply_to_message
     
-    # 🚀 FIX: Safely retrieve users as a list
     users_cursor = await db.get_all_users()
     users_list = await users_cursor.to_list(length=None)
     
     sent = 0
     failed = 0
     
-    for user in users_list:
-        try:
-            sent_m = await b_msg.copy(chat_id=user['_id'])
-            sent += 1
-            asyncio.create_task(delete_broadcast_after_delay(client, user['_id'], sent_m.id, mins * 60))
-            await asyncio.sleep(0.05)
-        except FloodWait as e:
-            await asyncio.sleep(e.value + 1)
-            sent_m = await b_msg.copy(chat_id=user['_id'])
-            sent += 1
-            asyncio.create_task(delete_broadcast_after_delay(client, user['_id'], sent_m.id, mins * 60))
-        except Exception:
-            failed += 1
+    # 🚀 Anti-Ban Batch Broadcasting (Chunking by 50)
+    for i in range(0, len(users_list), 50):
+        batch = users_list[i:i+50]
+        tasks = [send_msg(user['_id'], b_msg, mins, client, True) for user in batch]
+        results = await asyncio.gather(*tasks)
+        sent += results.count(200)
+        failed += results.count(400)
+        await asyncio.sleep(1) # টেলিগ্রাম API কে শান্ত রাখার জন্য ১ সেকেন্ড রেস্ট
             
     await wait_msg.edit_text(Script.DBROADCAST_DONE.format(sent=sent, failed=failed, mins=mins))
 
@@ -90,24 +99,20 @@ async def broadcast_message(client: Client, message: Message):
     wait_msg = await message.reply_text(Script.BROADCAST_START)
     b_msg = message.reply_to_message
     
-    # 🚀 FIX: Safely retrieve users as a list
     users_cursor = await db.get_all_users()
     users_list = await users_cursor.to_list(length=None)
     
     sent = 0
     failed = 0
     
-    for user in users_list:
-        try:
-            await b_msg.copy(chat_id=user['_id'])
-            sent += 1
-            await asyncio.sleep(0.05) 
-        except FloodWait as e:
-            await asyncio.sleep(e.value + 1)
-            await b_msg.copy(chat_id=user['_id'])
-            sent += 1
-        except Exception:
-            failed += 1
+    # 🚀 Anti-Ban Batch Broadcasting (Chunking by 50)
+    for i in range(0, len(users_list), 50):
+        batch = users_list[i:i+50]
+        tasks = [send_msg(user['_id'], b_msg, 0, client, False) for user in batch]
+        results = await asyncio.gather(*tasks)
+        sent += results.count(200)
+        failed += results.count(400)
+        await asyncio.sleep(1)
             
     await wait_msg.edit_text(Script.BROADCAST_DONE.format(sent=sent, failed=failed))
 
@@ -194,7 +199,6 @@ async def manual_remove_credit(client: Client, message: Message):
     try:
         user_id = int(message.command[1])
         amount = int(message.command[2])
-        # 🚀 মাইনাস (-) দিয়ে কল করলে ডাটাবেস থেকে ক্রেডিট অটোমেটিক কেটে যাবে
         await db.add_credits(user_id, -amount)
         await message.reply_text(Script.REMOVE_CREDIT_SUCCESS.format(amount=amount, user_id=user_id))
     except ValueError:
