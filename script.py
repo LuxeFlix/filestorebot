@@ -1,5 +1,5 @@
 class Script:
-    BRANDING_TAG = "\n\n<blockquote>Pᴏᴡᴇʀᴇᴅ Bʏ @LuxeFlix</blockquote>"
+    BRANDING_TAG = "\n\n<blockquote>Pᴏᴡᴇʀᴇᴅ Bʏ @koreandrama006</blockquote>"
     
     # ================= Delivery & Messages =================
     AUTO_DELETE_DONE = "<blockquote>🗑 <b>Yᴏᴜʀ Fɪʟᴇs Hᴀᴠᴇ Bᴇᴇɴ Aᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ Dᴇʟᴇᴛᴇᴅ!</b></blockquote>"
@@ -18,7 +18,7 @@ class Script:
     VERIFY_SUCCESS_CREDIT = "<blockquote>✅ <b>Vᴇʀɪғɪᴄᴀᴛɪᴏɴ Sᴜᴄᴄᴇssғᴜʟ!</b>\n\n🎁 <b>{creds} ᴄʀᴇᴅɪᴛs</b> ʜᴀᴠᴇ ʙᴇᴇɴ ᴀᴅᴅᴇᴅ ᴛᴏ ʏᴏᴜʀ ᴀᴄᴄᴏᴜɴᴛ. Sᴇɴᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ...</blockquote>"
     VERIFY_INVALID = "<blockquote>❌ <b>Iɴᴠᴀʟɪᴅ Oʀ Exᴘɪʀᴇᴅ Vᴇʀɪғɪᴄᴀᴛɪᴏɴ Tᴏᴋᴇɴ!</b>\nPʟᴇᴀsᴇ ᴄʟɪᴄᴋ ᴛʜᴇ ᴏʀɪɢɪɴᴀʟ ʟɪɴᴋ ᴀɴᴅ ᴠᴇʀɪғʏ ᴀɢᴀɪɴ.</blockquote>"
     GENERATING_SECURE_LINK = "<blockquote>⏳ <b>Gᴇɴᴇʀᴀᴛɪɴɢ Hɪɢʜʟʏ Sᴇᴄᴜʀᴇ Lɪɴᴋ...</b></blockquote>"
-    VERIFY_REQUIRED_UI = "📊 <b>Hᴇʏ {mention},</b>\n\n‼️ <b>GET ALL FILES IN A SINGLE LINK</b> ‼️\n\n➪ <b>Yᴏᴜʀ ʟɪɴᴋ ɪs ʀᴇᴀᴅʏ, ᴋɪɴᴅʟʏ ᴄʟɪᴄᴋ ᴏɴ ᴏᴘᴇɴ ʟɪɴᴋ ʙᴜᴛᴛᴏɴ..</b>"
+    VERIFY_REQUIRED_UI = "📊 <b>ʜᴇʏ ʙʀᴏ/sɪs,</b>\n\n‼️ <b>ɢᴇᴛ ᴀʟʟ ꜰɪʟᴇꜱ ɪɴ ᴀ ꜱɪɴɢʟᴇ ʟɪɴᴋ</b> ‼️\n\n➪ <b>Yᴏᴜʀ ʟɪɴᴋ ɪs ʀᴇᴀᴅʏ, ᴋɪɴᴅʟʏ ᴄʟɪᴄᴋ ᴏɴ ᴠᴇʀɪғʏ ʟɪɴᴋ ʙᴜᴛᴛᴏɴ..</b>"
     
     GUARD_BANNED = "<blockquote>🚫 <b>BYPASS TOOL DETECTED!</b>\nIɴᴠᴀʟɪᴅ sɪɢɴᴀᴛᴜʀᴇ! Yᴏᴜ ᴀᴛᴛᴇᴍᴘᴛᴇᴅ ᴛᴏ ʙʏᴘᴀss ᴛʜᴇ ʟɪɴᴋ ᴍᴀɴᴜᴀʟʟʏ.</blockquote>"
     
@@ -42,7 +42,7 @@ class Script:
     
     ABOUT_MSG = "» ᴍʏ ɴᴀᴍᴇ: <b>{bot_name}</b>\n\n<blockquote>» ᴜᴘᴅᴀᴛᴇs ᴄʜᴀɴɴᴇʟ: <a href='{updates}'>Cʟɪᴄᴋ ʜᴇʀᴇ</a>\n» ᴏᴡɴᴇʀ: <a href='{owner}'>Lᴜxᴇ Oᴡɴᴇʀ</a>\n» ʟᴀɴɢᴜᴀɢᴇ: <a href='https://www.python.org/'>Pʏᴛʜᴏɴ 3</a>\n» ʟɪʙʀᴀʀʏ: <a href='https://docs.pyrogram.org/'>Pʏʀᴏɢʀᴀᴍ ᴠ2</a>\n» ᴅᴀᴛᴀʙᴀsᴇ: <a href='https://www.mongodb.com/'>Mᴏɴɢᴏ DB</a>\n» ᴅᴇᴠᴇʟᴏᴘᴇʀ: <a href='{developer}'>@ʟᴜxᴇʙᴏᴛᴜᴘᴅᴀᴛᴇ</a></blockquote>"
     
-    COMMANDS_MSG = "<blockquote>» ᴀᴅᴍɪɴ ᴄᴏᴍᴍᴀɴᴅs:</blockquote>\n\n» /batch : Cʀᴇᴀᴛᴇ ɢʀᴏᴜᴘ ᴍᴇssᴀɢᴇs\n» /genlink : Cʀᴇᴀᴛᴇ ʟɪɴᴋ ғᴏʀ ᴏɴᴇ ᴘᴏsᴛ\n» /broadcast : Bʀᴏᴀᴅᴄᴀsᴛ ᴍᴇssᴀɢᴇ\n» /dbroadcast : Aᴜᴛᴏ-ᴅᴇʟᴇᴛᴇ ʙʀᴏᴀᴅᴄᴀsᴛ\n» /settings : Vɪᴇᴡ ᴍᴇssᴀɢᴇ/ғɪʟᴇs ʀᴇʟᴀᴛᴇᴅ sᴇᴛᴛɪɴɢs\n» /stats : Vɪᴇᴡ ʙᴏᴛ sᴛᴀᴛɪsᴛɪᴄs + ᴜᴘᴛɪᴍᴇ\n» /add_prem : Aᴅᴅ ᴀɴʏ ᴜsᴇʀ ᴛᴏ ᴘʀᴇᴍɪᴜᴍ\n» /del_prem : Rᴇᴍᴏᴠᴇ ᴀɴʏ ᴜsᴇʀ ғʀᴏᴍ ᴘʀᴇᴍɪᴜᴍ"
+    COMMANDS_MSG = "<blockquote>» ᴀᴅᴍɪɴ ᴄᴏᴍᴍᴀɴᴅs:</blockquote>\n\n<blockquote>» /batch : Cʀᴇᴀᴛᴇ ɢʀᴏᴜᴘ ᴍᴇssᴀɢᴇs\n» /genlink : Cʀᴇᴀᴛᴇ ʟɪɴᴋ ғᴏʀ ᴏɴᴇ ᴘᴏsᴛ\n» /broadcast : Bʀᴏᴀᴅᴄᴀsᴛ ᴍᴇssᴀɢᴇ\n» /dbroadcast : Aᴜᴛᴏ-ᴅᴇʟᴇᴛᴇ ʙʀᴏᴀᴅᴄᴀsᴛ\n» /settings : Vɪᴇᴡ ᴍᴇssᴀɢᴇ/ғɪʟᴇs ʀᴇʟᴀᴛᴇᴅ sᴇᴛᴛɪɴɢs\n» /stats : Vɪᴇᴡ ʙᴏᴛ sᴛᴀᴛɪsᴛɪᴄs + ᴜᴘᴛɪᴍᴇ\n» /add_prem : Aᴅᴅ ᴀɴʏ ᴜsᴇʀ ᴛᴏ ᴘʀᴇᴍɪᴜᴍ\n» /del_prem : Rᴇᴍᴏᴠᴇ ᴀɴʏ ᴜsᴇʀ ғʀᴏᴍ ᴘʀᴇᴍɪᴜᴍ</blockquote>"
     
     STATS_UI_MSG = "» ᴄᴏɴғɪɢᴜʀᴀᴛɪᴏɴs\n\n<blockquote>» ᴛᴏᴛᴀʟ ᴜsᴇʀs: <code>{total_users}</code>\n» ᴛᴏᴛᴀʟ ғɪʟᴇs: <code>{total_files}</code>\n» ᴛᴏᴛᴀʟ ʙᴀɴɴᴇᴅ ᴜsᴇʀs: <code>{total_banned}</code>\n» ᴀᴜᴛᴏ ᴅᴇʟᴇᴛᴇ ᴍᴏᴅᴇ: <b>{auto_delete}</b>\n» ᴘʀᴏᴛᴇᴄᴛ ᴄᴏɴᴛᴇɴᴛ: <b>{protect}</b>\n» ᴡᴇʙ ɢᴜᴀʀᴅ: <b>{guard}</b></blockquote>"
 
