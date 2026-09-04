@@ -347,7 +347,6 @@ async def start_command(client: Client, message: Message):
         await deliver_file(client, message.chat.id, payload, reply_to_msg=message)
         return
 
-    # 🚀 NEW: ULTRA PREMIUM START MENU UI
     welcome_text = Script.START_MSG.format(mention=message.from_user.mention)
     if await db.is_premium(user_id):
         welcome_text += Script.PREMIUM_USER_TAG
@@ -398,7 +397,6 @@ async def check_fsub_callback(client: Client, query: CallbackQuery):
 
     await deliver_file(client, query.message.chat.id, payload)
 
-# 🚀 NEW: DYNAMIC ULTRA PREMIUM CALLBACKS (1:1 with photo)
 @Client.on_callback_query(filters.regex(r"^(for_more_menu|about_menu|commands_menu|back_to_start|close_menu|stats_menu)$"))
 async def start_menu_callbacks(client: Client, query: CallbackQuery):
     action = query.data
@@ -434,25 +432,39 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
         except Exception: pass
 
     elif action == "for_more_menu":
+        # 🚀 HIDDEN LINKS WITH CONFIG
+        text = Script.FOR_MORE_MSG.format(
+            updates=getattr(Config, "UPDATES_LINK", "https://t.me/"),
+            movies=getattr(Config, "MOVIES_LINK", "https://t.me/"),
+            series=getattr(Config, "SERIES_LINK", "https://t.me/"),
+            developer=getattr(Config, "DEVELOPER_LINK", "https://t.me/")
+        )
         buttons = InlineKeyboardMarkup([
             [InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start"), InlineKeyboardButton(Script.BTN_STATS, callback_data="stats_menu")]
         ])
         try:
             if query.message.photo or query.message.video:
-                await query.message.edit_caption(Script.FOR_MORE_MSG, reply_markup=buttons, parse_mode=ParseMode.HTML)
+                await query.message.edit_caption(text, reply_markup=buttons, parse_mode=ParseMode.HTML)
             else:
-                await query.message.edit_text(Script.FOR_MORE_MSG, reply_markup=buttons, parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
+                await query.message.edit_text(text, reply_markup=buttons, parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
         except Exception: pass
 
     elif action == "about_menu":
+        # 🚀 HIDDEN LINKS WITH CONFIG
+        text = Script.ABOUT_MSG.format(
+            bot_name=bot_name,
+            updates=getattr(Config, "UPDATES_LINK", "https://t.me/"),
+            owner=getattr(Config, "OWNER_LINK", "https://t.me/"),
+            developer=getattr(Config, "DEVELOPER_LINK", "https://t.me/")
+        )
         buttons = InlineKeyboardMarkup([
             [InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start"), InlineKeyboardButton(Script.BTN_CLOSE, callback_data="close_menu")]
         ])
         try:
             if query.message.photo or query.message.video:
-                await query.message.edit_caption(Script.ABOUT_MSG.format(bot_name=bot_name), reply_markup=buttons, parse_mode=ParseMode.HTML)
+                await query.message.edit_caption(text, reply_markup=buttons, parse_mode=ParseMode.HTML)
             else:
-                await query.message.edit_text(Script.ABOUT_MSG.format(bot_name=bot_name), reply_markup=buttons, parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
+                await query.message.edit_text(text, reply_markup=buttons, parse_mode=ParseMode.HTML, link_preview_options=LinkPreviewOptions(is_disabled=True))
         except Exception: pass
 
     elif action == "commands_menu":
