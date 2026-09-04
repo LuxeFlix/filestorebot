@@ -1,9 +1,9 @@
 import time
 import asyncio
 import random
-import gc # 🚀 Active Garbage Collection এর জন্য যুক্ত করা হলো
+import gc
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery, LinkPreviewOptions
 from pyrogram.errors import FloodWait, ChannelInvalid, ChannelPrivate, ChatAdminRequired
 from pyrogram.enums import ParseMode
 from config import Config
@@ -154,7 +154,6 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
     except Exception as e:
         await client.send_message(chat_id, Script.DELIVERY_ERROR)
     finally:
-        # 🚀 Active Garbage Collection: কাজ শেষ হওয়ামাত্রই মেমোরি থেকে টেম্পোরারি ডেটা ক্লিন করে RAM জিরো করে দেবে
         gc.collect()
 
 async def handle_verification_check(client: Client, message: Message, user_id: int, payload: str, settings: dict):
@@ -222,9 +221,9 @@ async def handle_verification_check(client: Client, message: Message, user_id: i
             if verify_img:
                 await message.reply_photo(photo=verify_img, caption=verify_text, reply_markup=btn)
             else:
-                await message.reply_text(verify_text, reply_markup=btn, disable_web_page_preview=True)
+                await message.reply_text(verify_text, reply_markup=btn, link_preview_options=LinkPreviewOptions(is_disabled=True))
         except Exception:
-            await message.reply_text(verify_text, reply_markup=btn, disable_web_page_preview=True)
+            await message.reply_text(verify_text, reply_markup=btn, link_preview_options=LinkPreviewOptions(is_disabled=True))
             
         return True
         
@@ -239,7 +238,7 @@ async def start_command(client: Client, message: Message):
         if Config.SUPPORT_LINK:
             support_btn.append([InlineKeyboardButton(Script.BTN_CONTACT_SUPPORT, url=clean_url(Config.SUPPORT_LINK))])
         reply_markup = InlineKeyboardMarkup(support_btn) if support_btn else None
-        return await message.reply_text(Script.BANNED_MSG, reply_markup=reply_markup, quote=True)
+        return await message.reply_text(Script.BANNED_MSG, reply_markup=reply_markup, reply_to_message_id=message.id)
 
     is_new_user = await db.add_user(user_id)
     settings = await db.get_settings()
@@ -256,7 +255,7 @@ async def start_command(client: Client, message: Message):
             pass
 
     if settings.get('mode') == 'private' and not is_admin:
-        await message.reply_text(Script.PRIVATE_MODE_MSG, quote=True)
+        await message.reply_text(Script.PRIVATE_MODE_MSG, reply_to_message_id=message.id)
         return
 
     text = message.text
@@ -266,7 +265,7 @@ async def start_command(client: Client, message: Message):
         missing_fsubs = await check_fsub(client, user_id)
         if missing_fsubs:
             keyboard = await get_fsub_keyboard(client, missing_fsubs, payload)
-            await message.reply_text(Script.FSUB_WARNING, reply_markup=keyboard, quote=True)
+            await message.reply_text(Script.FSUB_WARNING, reply_markup=keyboard, reply_to_message_id=message.id)
             return
 
     if payload:
