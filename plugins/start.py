@@ -3,7 +3,7 @@ import asyncio
 import random
 import gc
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery, LinkPreviewOptions, WebAppInfo
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery, LinkPreviewOptions
 from pyrogram.errors import FloodWait, ChannelInvalid, ChannelPrivate, ChatAdminRequired
 from pyrogram.enums import ParseMode
 from config import Config
@@ -166,17 +166,14 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
         gc.collect()
 
 async def handle_verification_check(client: Client, message: Message, user_id: int, payload: str, settings: dict):
-    # 1. Admin or Premium Check
     if await db.is_admin(user_id) or await db.check_and_use_premium(user_id):
         return False
         
-    # 🚀 NEW: 2. Global Free Daily Limit Check for Non-Premium Users
     free_limit = settings.get('free_daily_limit', 0)
     if free_limit > 0:
         if await db.check_and_use_free_limit(user_id, free_limit):
             return False
         
-    # 3. Apply Shortlink Logic
     sl_type = settings.get('shortlink_type', 'time')
     needs_verify = False
     
@@ -219,7 +216,7 @@ async def handle_verification_check(client: Client, message: Message, user_id: i
         
         main_btns = []
         if short_url:
-            main_btns.append(InlineKeyboardButton(Script.BTN_OPEN_LINK, web_app=WebAppInfo(url=short_url)))
+            main_btns.append(InlineKeyboardButton(Script.BTN_OPEN_LINK, url=short_url))
         if tutorial_link:
             main_btns.append(InlineKeyboardButton(Script.BTN_TUTORIAL, url=tutorial_link))
             
