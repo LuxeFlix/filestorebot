@@ -1,5 +1,6 @@
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
+from pyrogram.enums import ParseMode  # 🚀 IMPORTED PARSEMODE
 from config import Config
 from utils.database import db
 from script import Script
@@ -26,7 +27,9 @@ def get_settings_keyboard(settings):
     keyboard.append([InlineKeyboardButton(Script.BTN_BYPASS_TIME.format(time=bypass_time), callback_data="set_bypass_time")])
     keyboard.append([InlineKeyboardButton(Script.BTN_WEB_GUARD.format(status=guard_status), callback_data="set_web_guard")])
     keyboard.append([InlineKeyboardButton(Script.BTN_PROTECT_CONTENT.format(status=protect_status), callback_data="set_protect")])
+    
     keyboard.append([InlineKeyboardButton(Script.BTN_PREMIUM_SETTINGS, callback_data="prem_settings_menu")])
+        
     keyboard.append([InlineKeyboardButton(Script.BTN_CLOSE_PANEL, callback_data="close_settings")])
     return InlineKeyboardMarkup(keyboard)
 
@@ -49,22 +52,27 @@ async def settings_callbacks(client: Client, query: CallbackQuery):
     if action == "prem_settings_menu":
         kb = [[InlineKeyboardButton("🔙 ʙᴀᴄᴋ", callback_data="back_to_main_settings")]]
         
-        # 🚀 UPDATE: Added Help text for all new commands
+        # 🚀 FIX: Used strict HTML parsing to prevent EntityBoundsInvalid crashes
         text = (
-            "💎 **ᴘʀᴇᴍɪᴜᴍ ᴄᴏɴᴛʀᴏʟ ᴘᴀɴᴇʟ**\n\n"
-            "**1. Button Links:**\n"
-            "• `/set_owner_link https://t.me/xx`\n"
-            "• `/set_group_link https://t.me/xx`\n\n"
-            "**2. Global Free Limit:**\n"
-            "• `/set_free_limit 5` *(0 to turn off)*\n\n"
-            "**3. Manage Users:**\n"
-            "• `/add_prem <user_id> <days> <limit>`\n"
-            "• `/del_prem <user_id>`"
+            "💎 <b>ᴘʀᴇᴍɪᴜᴍ ᴄᴏɴᴛʀᴏʟ ᴘᴀɴᴇʟ</b>\n\n"
+            "<b>1. Button Links:</b>\n"
+            "• <code>/set_owner_link https://t.me/xx</code>\n"
+            "• <code>/set_group_link https://t.me/xx</code>\n\n"
+            "<b>2. Global Free Limit:</b>\n"
+            "• <code>/set_free_limit 5</code> <i>(0 to turn off)</i>\n\n"
+            "<b>3. Manage Users:</b>\n"
+            "• <code>/add_prem UserID Days Limit</code>\n"
+            "• <code>/del_prem UserID</code>"
         )
-        return await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(kb))
+        await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+        return await query.answer()
         
     elif action == "back_to_main_settings":
-        return await query.message.edit_text(Script.SETTINGS_MSG, reply_markup=get_settings_keyboard(settings))
+        await query.message.edit_text(Script.SETTINGS_MSG, reply_markup=get_settings_keyboard(settings))
+        return await query.answer()
+        
+    elif action == "set_pay_help":
+        return await query.answer("Type /set_pay followed by your Bkash/Nagad details in normal message to update!", show_alert=True)
 
     if action == "set_sl_status":
         new_status = not settings.get('shortlink_status', False)
