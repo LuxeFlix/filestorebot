@@ -85,6 +85,32 @@ class Database:
         )
         return True
 
+    # 🚀 NEW: Free User Daily Limit Tracking
+    async def check_and_use_free_limit(self, user_id: int, limit: int):
+        if limit <= 0: return False
+        
+        user = await self.get_user(user_id)
+        if not user:
+            await self.add_user(user_id)
+            user = await self.get_user(user_id)
+            
+        from datetime import datetime
+        today = datetime.now().strftime('%Y-%m-%d')
+        last_date = user.get('free_last_date', '')
+        used_today = user.get('free_used_today', 0)
+        
+        if last_date != today:
+            used_today = 0
+            
+        if used_today >= limit:
+            return False
+            
+        await self.users_col.update_one(
+            {'_id': user_id},
+            {'$set': {'free_last_date': today, 'free_used_today': used_today + 1}}
+        )
+        return True
+
     async def get_user(self, user_id: int):
         return await self.users_col.find_one({'_id': user_id})
 
@@ -215,14 +241,16 @@ class Database:
             'shortener_api': Config.SHORTENER_API,
             'tutorial_link': Config.TUTORIAL_LINK,
             'protect_content': False,
-            # 🚀 FIX: Clean Small Caps Plans
+            # 🚀 NEW: Setup Admin defaults for Links and Free Limit
+            'owner_link': '',
+            'group_link': '',
+            'free_daily_limit': 0,
             'premium_plans': {
                 'plan1': {'name': '1 ᴡᴇᴇᴋ ᴛʀɪᴀʟ', 'days': 7, 'price': 20, 'limit': 5},
                 'plan2': {'name': '1 ᴍᴏɴᴛʜ ᴘʀᴏ', 'days': 30, 'price': 50, 'limit': 0},
                 'plan3': {'name': '3 ᴍᴏɴᴛʜs ᴘʀᴏ', 'days': 90, 'price': 120, 'limit': 0},
                 'plan4': {'name': 'ʟɪғᴇᴛɪᴍᴇ ᴘʀᴏ', 'days': 36500, 'price': 999, 'limit': 0}
-            },
-            'payment_info': 'Sᴇɴᴅ ᴍᴏɴᴇʏ ᴛᴏ Bᴋᴀsʜ/Nᴀɢᴀᴅ ᴀɴᴅ ᴄᴏɴᴛᴀᴄᴛ Aᴅᴍɪɴ ᴡɪᴛʜ Sᴄʀᴇᴇɴsʜᴏᴛ.'
+            }
         }
         
         if settings:
