@@ -1,5 +1,6 @@
 import time
 import asyncio
+import random
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
 from pyrogram.errors import FloodWait, ChannelInvalid, ChannelPrivate, ChatAdminRequired
@@ -10,6 +11,22 @@ from utils.fsub_helper import check_fsub, get_fsub_keyboard
 from utils.shortener import get_shortlink
 from utils.shortlink_guard import ShortlinkGuard
 from script import Script
+
+# 🚀 RAM Saver: Pure Python LRU Cache System
+FILE_CACHE = {}
+MAX_CACHE_SIZE = 50
+
+async def get_cached_file(unique_id: str):
+    if unique_id in FILE_CACHE:
+        val = FILE_CACHE.pop(unique_id)
+        FILE_CACHE[unique_id] = val
+        return val
+    file_data = await db.get_file(unique_id)
+    if file_data:
+        FILE_CACHE[unique_id] = file_data
+        if len(FILE_CACHE) > MAX_CACHE_SIZE:
+            FILE_CACHE.pop(next(iter(FILE_CACHE)))
+    return file_data
 
 def clean_url(url: str) -> str:
     if not url: return ""
@@ -34,10 +51,12 @@ async def delete_after_delay(client, chat_id, message_ids, delay):
         pass
 
 async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=None):
-    unique_id = payload.replace(Config.CUSTOM_PREFIX, "") if payload.startswith(Config.CUSTOM_PREFIX) else payload
+    # 🚀 CUSTOM_PREFIX রিমুভ করে ডাইরেক্ট payload ব্যবহার করা হচ্ছে
+    unique_id = payload
         
     try:
-        file_data = await db.get_file(unique_id)
+        # 🚀 ডাটাবেসের বদলে RAM Cache থেকে ফাস্ট ডাটা রিড
+        file_data = await get_cached_file(unique_id)
         if not file_data:
             if reply_to_msg:
                 await reply_to_msg.reply_text(Script.INVALID_LINK)
@@ -75,9 +94,12 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                         else:
                             sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, protect_content=False)
                     if sent_m: sent_msg_ids.append(sent_m.id)
-                    await asyncio.sleep(0.15) 
+                    
+                    # 🚀 SMART JITTER: মানুষের মতো ফরোয়ার্ড স্পিড মিমিক করার জন্য র‍্যান্ডম ডিলে
+                    await asyncio.sleep(random.uniform(0.6, 1.8)) 
                 except FloodWait as e:
-                    await asyncio.sleep(e.value + 1)
+                    # 🚀 FloodWait আসলে ডাইনামিক ওয়েট
+                    await asyncio.sleep(e.value + random.uniform(1.0, 2.5))
                     if db_msg and getattr(db_msg, "media", None):
                         sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, caption=final_cap, parse_mode=ParseMode.HTML, protect_content=False)
                     elif db_msg:
@@ -157,7 +179,6 @@ async def handle_verification_check(client: Client, message: Message, user_id: i
         
         wait_msg = await message.reply_text(Script.GENERATING_SECURE_LINK)
         
-        # 🚀 Web Guard Routing Logic
         is_guard_on = settings.get('web_guard', False)
         short_url = None
         
@@ -250,14 +271,12 @@ async def start_command(client: Client, message: Message):
             return
 
     if payload:
-        # 🚀 STANDALONE WEB GUARD (Cryptographic Signature Checking)
         if payload.startswith("vpass_"):
             parts = payload.split("_")
             if len(parts) >= 3:
                 token = parts[1]
                 signature = parts[2]
                 
-                # 🚀 CHECK CRYPTOGRAPHIC SIGNATURE
                 expected_signature = ShortlinkGuard.generate_signature(token)
                 
                 if signature == expected_signature:
@@ -279,13 +298,11 @@ async def start_command(client: Client, message: Message):
                     else:
                         return await message.reply_text(Script.VERIFY_INVALID)
                 else:
-                    # 🚀 Invalid Signature (Bypass Detected)
                     return await message.reply_text(Script.GUARD_BANNED)
             else:
                 return await message.reply_text(Script.VERIFY_INVALID)
             return
 
-        # 🚀 OLD VERIFY FLOW (Fallback)
         elif payload.startswith("verify_"):
             token = payload.split("_")[1]
             token_data = await db.get_verify_token(token)
@@ -313,7 +330,6 @@ async def start_command(client: Client, message: Message):
                 await message.reply_text(Script.VERIFY_INVALID)
             return
 
-        # 🚀 NORMAL FILE REQUEST
         if settings.get('shortlink_status'):
             is_locked = await handle_verification_check(client, message, user_id, payload, settings)
             if is_locked: return
