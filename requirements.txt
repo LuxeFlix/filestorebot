@@ -1,0 +1,6 @@
+kurigram
+tgcrypto
+flask
+motor
+python-dotenv
+aiohttp
