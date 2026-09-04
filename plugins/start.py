@@ -65,6 +65,8 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
         sent_msg_ids = []
         settings = await db.get_settings()
         auto_delete_time = settings.get('auto_delete', 0)
+        
+        is_protected = settings.get('protect_content', False)
 
         if file_data.get('t') == 'b':
             db_chat_id = file_data['c']
@@ -88,18 +90,18 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                         if db_msg.media:
                             orig_cap = db_msg.caption.html if db_msg.caption else ""
                             final_cap = format_caption(orig_cap)
-                            sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, caption=final_cap, parse_mode=ParseMode.HTML, protect_content=False)
+                            sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
                         else:
-                            sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, protect_content=False)
+                            sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, protect_content=is_protected)
                     if sent_m: sent_msg_ids.append(sent_m.id)
                     
                     await asyncio.sleep(random.uniform(0.6, 1.8)) 
                 except FloodWait as e:
                     await asyncio.sleep(e.value + random.uniform(1.0, 2.5))
                     if db_msg and getattr(db_msg, "media", None):
-                        sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, caption=final_cap, parse_mode=ParseMode.HTML, protect_content=False)
+                        sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
                     elif db_msg:
-                        sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, protect_content=False)
+                        sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, protect_content=is_protected)
                     if sent_m: sent_msg_ids.append(sent_m.id)
                 except Exception:
                     pass 
@@ -126,9 +128,9 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                     if db_msg.media:
                         orig_cap = db_msg.caption.html if db_msg.caption else ""
                         final_cap = format_caption(orig_cap)
-                        sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, caption=final_cap, parse_mode=ParseMode.HTML, protect_content=False)
+                        sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
                     else:
-                        sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, protect_content=False)
+                        sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, protect_content=is_protected)
                 else:
                     raise Exception("Message empty")
             except (ChannelInvalid, ChannelPrivate, ChatAdminRequired, Exception):
@@ -136,7 +138,7 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                     orig_cap = file_data.get('cap', '')
                     final_cap = format_caption(orig_cap)
                     try:
-                        sent_m = await client.send_cached_media(chat_id, file_data['f'], caption=final_cap, parse_mode=ParseMode.HTML)
+                        sent_m = await client.send_cached_media(chat_id, file_data['f'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
                     except Exception:
                         sent_m = await client.send_message(chat_id, Script.FILE_NOT_FOUND_SERVER)
                 else:
