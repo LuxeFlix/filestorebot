@@ -15,17 +15,14 @@ class Database:
         self.client1 = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_1, **pool_settings)
         self.db1 = self.client1[Config.MONGO_DB_NAME]
         self.files_col1 = self.db1.files
-        
         self.users_col = self.db1.users
         self.admins_col = self.db1.admins
         self.settings_col = self.db1.settings
         self.join_reqs_col = self.db1.join_requests
         self.links_col = self.db1.invite_links 
         self.banned_col = self.db1.banned_users
-        
         self.tokens_col = self.db1.verify_tokens
         self.verified_col = self.db1.verified_users
-        
         self.premium_col = self.db1.premium_users
 
         self.files_col2 = None
@@ -38,9 +35,14 @@ class Database:
             self.db3 = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_3, **pool_settings)[Config.MONGO_DB_NAME]
             self.files_col3 = self.db3.files
 
-    async def add_premium(self, user_id: int, time_seconds: int):
+    # 🚀 SECURE: Update add_premium with daily limits
+    async def add_premium(self, user_id: int, time_seconds: int, daily_limit: int = 0):
         expire_at = int(time.time()) + time_seconds
-        await self.premium_col.update_one({'_id': user_id}, {'$set': {'expire_at': expire_at}}, upsert=True)
+        await self.premium_col.update_one(
+            {'_id': user_id}, 
+            {'$set': {'expire_at': expire_at, 'daily_limit': daily_limit, 'used_today': 0, 'last_date': ''}}, 
+            upsert=True
+        )
         
     async def remove_premium(self, user_id: int):
         await self.premium_col.delete_one({'_id': user_id})
@@ -52,6 +54,39 @@ class Database:
         if doc and doc.get('expire_at', 0) <= int(time.time()):
             await self.remove_premium(user_id) 
         return False
+
+    # 🚀 NEW: Smart Tracking for Trial Limits (5 links per day logic)
+    async def check_and_use_premium(self, user_id: int):
+        doc = await self.premium_col.find_one({'_id': user_id})
+        if not doc:
+            return False
+        
+        current_time = int(time.time())
+        if doc.get('expire_at', 0) <= current_time:
+            await self.remove_premium(user_id)
+            return False
+            
+        daily_limit = doc.get('daily_limit', 0)
+        if daily_limit == 0:
+            return True # Unlimited Plan (Monthly/Lifetime)
+            
+        from datetime import datetime
+        today = datetime.now().strftime('%Y-%m-%d')
+        last_date = doc.get('last_date', '')
+        used_today = doc.get('used_today', 0)
+        
+        # 🚀 Midnight Auto-Reset
+        if last_date != today:
+            used_today = 0
+            
+        if used_today >= daily_limit:
+            return False # Daily limit reached, user will see shortlink for today
+            
+        await self.premium_col.update_one(
+            {'_id': user_id},
+            {'$set': {'last_date': today, 'used_today': used_today + 1}}
+        )
+        return True
 
     async def get_user(self, user_id: int):
         return await self.users_col.find_one({'_id': user_id})
@@ -182,7 +217,15 @@ class Database:
             'shortener_url': Config.SHORTENER_URL,
             'shortener_api': Config.SHORTENER_API,
             'tutorial_link': Config.TUTORIAL_LINK,
-            'protect_content': False # 🚀 NEW: Protect Content Default State
+            'protect_content': False,
+            # 🚀 NEW: Integrated Default Premium Plans
+            'premium_plans': {
+                'plan1': {'name': '1 ᴡ ᴇ ᴇ ᴋ  ᴛ ʀ ɪ ᴀ ʟ', 'days': 7, 'price': 20, 'limit': 5},
+                'plan2': {'name': '1 ᴍ ᴏ ɴ ᴛ ʜ  ᴘ ʀ ᴏ', 'days': 30, 'price': 50, 'limit': 0},
+                'plan3': {'name': '3 ᴍ ᴏ ɴ ᴛ ʜ s  ᴘ ʀ ᴏ', 'days': 90, 'price': 120, 'limit': 0},
+                'plan4': {'name': 'ʟ ɪ ғ ᴇ ᴛ ɪ ᴍ ᴇ  ᴘ ʀ ᴏ', 'days': 36500, 'price': 999, 'limit': 0}
+            },
+            'payment_info': 'Sᴇɴᴅ ᴍᴏɴᴇʏ ᴛᴏ Bᴋᴀsʜ/Nᴀɢᴀᴅ ᴀɴᴅ ᴄᴏɴᴛᴀᴄᴛ Aᴅᴍɪɴ ᴡɪᴛʜ Sᴄʀᴇᴇɴsʜᴏᴛ.'
         }
         
         if settings:
