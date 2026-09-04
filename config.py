@@ -36,4 +36,14 @@ class Config:
     # 🚀 Standalone Web Guard Settings
     GUARD_URL = os.environ.get("GUARD_URL", "https://luxeguard.souravbosu947.workers.dev")
     GUARD_SECRET = os.environ.get("GUARD_SECRET", "Luxe_Super_Secret_Guard_2026")
+   
+    # 🚀 NEW: ULTRA PREMIUM MENU LINKS
+    UPDATES_LINK = os.environ.get("UPDATES_LINK", "https://t.me/LuxeFlix")
+    MOVIES_LINK = os.environ.get("MOVIES_LINK", "https://t.me/moviefileshd1")
+    SERIES_LINK = os.environ.get("SERIES_LINK", "https://t.me/")
+    DEVELOPER_LINK = os.environ.get("DEVELOPER_LINK", "https://t.me/luxebotupdate")
+    OWNER_LINK = os.environ.get("OWNER_LINK", "https://t.me/koreandrama006")
+    
+    # আপনার ছবির লিংক (যদি আগে না দিয়ে থাকেন)
+    START_PIC = os.environ.get("START_PIC", "https://i.ibb.co/your-image.jpg")
 
