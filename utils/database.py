@@ -6,7 +6,6 @@ from config import Config
 
 class Database:
     def __init__(self):
-        # 🚀 RAM সেভ এবং হাই-স্পিড ডেটা রিড/রাইট করার জন্য Connection Pooling
         pool_settings = {
             "maxPoolSize": 50,
             "minPoolSize": 5,
@@ -201,7 +200,6 @@ class Database:
     async def update_settings(self, key: str, value):
         await self.settings_col.update_one({'_id': 'bot_settings'}, {'$set': {key: value}}, upsert=True)
 
-    # 🚀 SECURE UPDATE: Length changed to 50 for max security
     async def generate_unique_id(self, length=50):
         characters = string.ascii_letters + string.digits
         while True:
@@ -237,15 +235,19 @@ class Database:
 
     async def check_file_exists(self, file_unique_id: str):
         if not file_unique_id: return None
-        doc = await self.files_col1.find_one({'u': file_unique_id})
-        if not doc and self.files_col2: doc = await self.files_col2.find_one({'u': file_unique_id})
-        if not doc and self.files_col3: doc = await self.files_col3.find_one({'u': file_unique_id})
+        # 🚀 Data Minimization (Projection): RAM বাঁচানোর জন্য শুধুমাত্র _id আনা হচ্ছে
+        projection = {'_id': 1}
+        doc = await self.files_col1.find_one({'u': file_unique_id}, projection)
+        if not doc and self.files_col2: doc = await self.files_col2.find_one({'u': file_unique_id}, projection)
+        if not doc and self.files_col3: doc = await self.files_col3.find_one({'u': file_unique_id}, projection)
         return doc
 
     async def get_file(self, unique_id: str):
-        doc = await self.files_col1.find_one({'_id': unique_id})
-        if not doc and self.files_col2: doc = await self.files_col2.find_one({'_id': unique_id})
-        if not doc and self.files_col3: doc = await self.files_col3.find_one({'_id': unique_id})
+        # 🚀 Data Minimization (Projection): শুধুমাত্র দরকারি ফিল্ডগুলো আনা হচ্ছে
+        projection = {'_id': 1, 't': 1, 'm': 1, 'c': 1, 'f': 1, 'u': 1, 'cap': 1, 'f_id': 1, 'l_id': 1}
+        doc = await self.files_col1.find_one({'_id': unique_id}, projection)
+        if not doc and self.files_col2: doc = await self.files_col2.find_one({'_id': unique_id}, projection)
+        if not doc and self.files_col3: doc = await self.files_col3.find_one({'_id': unique_id}, projection)
         return doc
 
 db = Database()
