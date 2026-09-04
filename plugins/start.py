@@ -42,10 +42,8 @@ def format_caption(original_caption: str) -> str:
         return f"{original_caption}{Script.BRANDING_TAG}"
     return Script.BRANDING_TAG.strip()
 
-# 🚀 SMART UX FIX: নতুন মেসেজ না পাঠিয়ে ওয়ার্নিং মেসেজ এডিট করবে
 async def delete_after_delay(client, chat_id, message_ids, delay):
     await asyncio.sleep(delay)
-    
     warn_msg_id = message_ids[-1]
     file_msg_ids = message_ids[:-1]
     
@@ -75,7 +73,6 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
         sent_msg_ids = []
         settings = await db.get_settings()
         auto_delete_time = settings.get('auto_delete', 0)
-        
         is_protected = settings.get('protect_content', False)
 
         if file_data.get('t') == 'b':
@@ -169,7 +166,8 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
         gc.collect()
 
 async def handle_verification_check(client: Client, message: Message, user_id: int, payload: str, settings: dict):
-    if await db.is_admin(user_id) or await db.is_premium(user_id):
+    # 🚀 SECURE: New check_and_use_premium ensures 5-links/day limit is strictly followed
+    if await db.is_admin(user_id) or await db.check_and_use_premium(user_id):
         return False
         
     sl_type = settings.get('shortlink_type', 'time')
@@ -221,9 +219,8 @@ async def handle_verification_check(client: Client, message: Message, user_id: i
         if main_btns:
             btn_list.append(main_btns)
             
-        premium_link = clean_url(Config.PREMIUM_LINK)
-        if premium_link:
-            btn_list.append([InlineKeyboardButton(Script.BTN_BUY_PREMIUM, url=premium_link)])
+        # 🚀 NEW: Shows Dynamic Premium Panel inline
+        btn_list.append([InlineKeyboardButton(Script.BTN_BUY_PREMIUM, callback_data="show_premium_plans")])
             
         btn = InlineKeyboardMarkup(btn_list)
         await wait_msg.delete()
