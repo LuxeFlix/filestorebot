@@ -354,14 +354,16 @@ async def start_command(client: Client, message: Message):
         creds = await db.get_credits(user_id)
         welcome_text += Script.CREDIT_TAG.format(creds=creds)
         
-    buttons = InlineKeyboardMarkup([
-        [InlineKeyboardButton(Script.BTN_FOR_MORE, callback_data="for_more_menu")],
-        [InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu"), InlineKeyboardButton(Script.BTN_COMMANDS, callback_data="commands_menu")]
-    ])
+    # 🚀 SMART BUTTON HIDING: সাধারণ ইউজাররা COMMANDS বাটন দেখতে পাবে না
+    btn_list = [[InlineKeyboardButton(Script.BTN_FOR_MORE, callback_data="for_more_menu")]]
+    if is_admin:
+        btn_list.append([InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu"), InlineKeyboardButton(Script.BTN_COMMANDS, callback_data="commands_menu")])
+    else:
+        btn_list.append([InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu")])
+        
+    buttons = InlineKeyboardMarkup(btn_list)
     
     start_pic = getattr(Config, "START_PIC", None)
-    
-    # 🚀 FIX: Fallback to text message if image fetching fails
     if start_pic:
         try:
             await message.reply_photo(photo=start_pic, caption=welcome_text, reply_markup=buttons, parse_mode=ParseMode.HTML)
@@ -414,9 +416,10 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
         except Exception: pass
         return
 
+    is_admin = await db.is_admin(user_id)
+
     if action == "back_to_start":
         settings = await db.get_settings()
-        is_admin = await db.is_admin(user_id)
         welcome_text = Script.START_MSG.format(mention=query.from_user.mention)
 
         if await db.is_premium(user_id):
@@ -425,10 +428,14 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
             creds = await db.get_credits(user_id)
             welcome_text += Script.CREDIT_TAG.format(creds=creds)
 
-        buttons = InlineKeyboardMarkup([
-            [InlineKeyboardButton(Script.BTN_FOR_MORE, callback_data="for_more_menu")],
-            [InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu"), InlineKeyboardButton(Script.BTN_COMMANDS, callback_data="commands_menu")]
-        ])
+        # 🚀 SMART BUTTON HIDING
+        btn_list = [[InlineKeyboardButton(Script.BTN_FOR_MORE, callback_data="for_more_menu")]]
+        if is_admin:
+            btn_list.append([InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu"), InlineKeyboardButton(Script.BTN_COMMANDS, callback_data="commands_menu")])
+        else:
+            btn_list.append([InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu")])
+            
+        buttons = InlineKeyboardMarkup(btn_list)
         try:
             if query.message.photo or query.message.video:
                 await query.message.edit_caption(welcome_text, reply_markup=buttons, parse_mode=ParseMode.HTML)
@@ -443,9 +450,15 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
             series=getattr(Config, "SERIES_LINK", "https://t.me/"),
             developer=getattr(Config, "DEVELOPER_LINK", "https://t.me/")
         )
-        buttons = InlineKeyboardMarkup([
-            [InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start"), InlineKeyboardButton(Script.BTN_STATS, callback_data="stats_menu")]
-        ])
+        
+        # 🚀 SMART BUTTON HIDING: সাধারণ ইউজাররা STATS বাটন দেখতে পাবে না
+        btn_list = []
+        if is_admin:
+            btn_list.append([InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start"), InlineKeyboardButton(Script.BTN_STATS, callback_data="stats_menu")])
+        else:
+            btn_list.append([InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start")])
+            
+        buttons = InlineKeyboardMarkup(btn_list)
         try:
             if query.message.photo or query.message.video:
                 await query.message.edit_caption(text, reply_markup=buttons, parse_mode=ParseMode.HTML)
@@ -471,6 +484,9 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
         except Exception: pass
 
     elif action == "commands_menu":
+        if not is_admin:
+            return # 🚀 SILENT IGNORE FRONTEND GUARD
+            
         buttons = InlineKeyboardMarkup([
             [InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start"), InlineKeyboardButton(Script.BTN_CLOSE, callback_data="close_menu")]
         ])
@@ -482,9 +498,8 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
         except Exception: pass
 
     elif action == "stats_menu":
-        is_admin = await db.is_admin(user_id)
         if not is_admin:
-            return await query.answer("⚠️ Only Admins can view configurations!", show_alert=True)
+            return # 🚀 SILENT IGNORE FRONTEND GUARD
 
         total_users = await db.total_users()
         total_files = await db.total_files()
