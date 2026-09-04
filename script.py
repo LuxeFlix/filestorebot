@@ -85,7 +85,7 @@ class Script:
     TUTORIAL_REMOVED = "✅ **Tutorial Link Removed!**\nএখন থেকে আর টিউটোরিয়াল বাটন দেখাবে না।"
     TUTORIAL_SUCCESS = "✅ **Tutorial Link Updated Successfully!**\n\n🔗 **Link:** {link}"
     
-    # ================= Settings Panel =================
+    # ================= Settings & Premium =================
     SET_DELETE_USAGE = "❌ **সঠিক নিয়ম:** `/set_delete 10` (মিনিট) অথবা `/set_delete off`"
     SET_DELETE_OFF = "✅ **Auto Delete is now OFF!**\nফাইল আর অটো-ডিলিট হবে না।"
     SET_DELETE_ON = "✅ **Auto Delete is now ON!**\nইউজারদের দেওয়া ফাইল **{mins} মিনিট** পর ডিলিট হয়ে যাবে।"
@@ -94,13 +94,16 @@ class Script:
     NOT_OWNER_ALERT = "❌ You are not the owner!"
     SETTINGS_UPDATED_ALERT = "✅ Settings Updated!"
     
-    # ================= Buttons =================
+    # 🚀 NEW: Buy Premium Message & Buttons
+    BUY_PREMIUM_MSG = "<b>Iғ Yᴏᴜ Wᴇɴᴛ Tᴏ Bᴜʏ Pʀᴇᴍɪᴜᴍ Cᴏɴᴛᴀᴄᴛ Oᴡɴᴇʀ</b>"
+    BTN_OWNER = "👤 ᴏᴡɴᴇʀ"
+    BTN_GROUP = "👥 ɢʀᴏᴜᴘ"
+    BTN_BUY_NOW = "🛒 ʙᴜʏ ɴᴏᴡ"
+    
     BTN_UPDATES_CHANNEL = "📢 Updates Channel"
     BTN_CONTACT_SUPPORT = "🛠 Contact Support"
     BTN_OPEN_LINK = "▶️ OPEN LINK"
     BTN_TUTORIAL = "🎥 TUTORIAL"
-    
-    # 🚀 FIX: CLEAN SMALL CAPS NO EXTRA SPACES
     BTN_BUY_PREMIUM = "💎 ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ"
     BTN_PREMIUM_SETTINGS = "💎 ᴘʀᴇᴍɪᴜᴍ sᴇᴛᴛɪɴɢs"
     
