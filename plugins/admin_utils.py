@@ -1,6 +1,8 @@
 import os
 import time
 import asyncio
+import base64
+import motor.motor_asyncio
 from datetime import timedelta
 from pyrogram import Client, filters
 from pyrogram.types import Message
@@ -299,4 +301,69 @@ async def manual_remove_credit(client: Client, message: Message):
         await message.reply_text(Script.REMOVE_CREDIT_SUCCESS.format(amount=amount, user_id=user_id))
     except ValueError:
         await message.reply_text(Script.ID_AMOUNT_ERROR)
+
+# ================= SERVER-TO-SERVER MIGRATION SCRIPT =================
+
+@Client.on_message(filters.command("migrate_db") & filters.private)
+async def migrate_database_command(client: Client, message: Message):
+    if message.from_user.id != Config.OWNER_ID: 
+        return # 🚀 SILENT IGNORE
         
+    if len(message.command) < 2:
+        return await message.reply_text("❌ **সঠিক নিয়ম:** `/migrate_db <আপনার_পুরনো_DB_URL>`\n\n**উদাহরণ:** `/migrate_db mongodb+srv://old_user:password@cluster...`")
+        
+    old_mongo_url = message.command[1]
+    
+    settings = await db.get_settings()
+    active_db = settings.get('active_db') or Config.DB_CHANNEL
+    
+    if not active_db:
+        return await message.reply_text("❌ **আগে /set_db দিয়ে ডিবি চ্যানেল সেট করুন!**")
+        
+    wait_msg = await message.reply_text("⏳ **Old Database-এর সাথে কানেক্ট করা হচ্ছে...**\nদয়া করে অপেক্ষা করুন...")
+    
+    try:
+        # 🚀 পুরনো ডাটাবেসের সাথে ডাইনামিক কানেকশন তৈরি
+        old_client = motor.motor_asyncio.AsyncIOMotorClient(old_mongo_url)
+        old_db = old_client[Config.DB_NAME]
+        old_links_col = old_db['links']
+        
+        cursor = old_links_col.find({})
+        total = 0
+        success = 0
+        
+        async for doc in cursor:
+            total += 1
+            payload = doc.get('hash')
+            if not payload: continue
+            
+            # চেক করা হচ্ছে ডেটাটি আগেই নতুন ডিবিতে আছে কি না
+            exists = await db.files_col1.find_one({'_id': payload})
+            if exists: continue
+            
+            try:
+                padding = "=" * (-len(payload) % 4)
+                decoded = base64.urlsafe_b64decode(payload + padding).decode('utf-8')
+                parts = decoded.split("-")
+                db_abs = abs(active_db)
+                
+                new_doc = None
+                if len(parts) == 3:
+                    new_doc = {'_id': payload, 't': 'b', 'c': active_db, 'f_id': int(int(parts[1]) / db_abs), 'l_id': int(int(parts[2]) / db_abs)}
+                elif len(parts) == 2:
+                    new_doc = {'_id': payload, 't': 's', 'c': active_db, 'm': int(int(parts[1]) / db_abs)}
+                elif len(parts) == 5:
+                    new_doc = {'_id': payload, 't': 'b', 'c': active_db, 'f_id': int(int(parts[3]) / db_abs), 'l_id': int(int(parts[4]) / db_abs)}
+                elif len(parts) == 4:
+                    new_doc = {'_id': payload, 't': 's', 'c': active_db, 'm': int(int(parts[3]) / db_abs)}
+                    
+                if new_doc:
+                    # নতুন ডাটাবেসে সেভ করা হচ্ছে
+                    await db.files_col1.insert_one(new_doc)
+                    success += 1
+            except Exception:
+                pass
+                
+        await wait_msg.edit_text(f"✅ **Migration Successfully Completed!**\n\n📦 **Total Old Links Found:** `{total}`\n🚀 **Successfully Migrated to New DB:** `{success}`")
+    except Exception as e:
+        await wait_msg.edit_text(f"❌ **Migration Failed:** `{str(e)}`")
