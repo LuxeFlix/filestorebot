@@ -3,6 +3,7 @@ import time
 import asyncio
 import base64
 import re
+import motor.motor_asyncio
 from datetime import timedelta
 from pyrogram import Client, filters
 from pyrogram.types import Message
@@ -12,6 +13,12 @@ from utils.database import db
 from script import Script
 
 bot_start_time = time.time()
+
+# 🚀 SMART LEGACY DECODER & GLOBAL DB
+OLD_DB_CHANNEL = -1002266490060
+MONGO_CLIENT = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_1)
+DB_NAME = getattr(Config, "MONGO_DB_NAME", "filestorebot")
+ANTI_BAN_COL = MONGO_CLIENT[DB_NAME]['anti_ban_links']
 
 def get_ram_usage():
     try:
@@ -174,7 +181,6 @@ async def dbroadcast_message(client: Client, message: Message):
             
     await wait_msg.edit_text(Script.DBROADCAST_DONE.format(sent=sent, failed=failed, mins=mins))
 
-
 @Client.on_message(filters.command("broadcast") & filters.private)
 async def broadcast_message(client: Client, message: Message):
     if message.from_user.id != Config.OWNER_ID: 
@@ -302,20 +308,20 @@ async def manual_remove_credit(client: Client, message: Message):
     except ValueError:
         await message.reply_text(Script.ID_AMOUNT_ERROR)
 
+# ================= 🚀 PURE ANTI-BAN INDEXER SCRIPT =================
+# এই স্ক্রিপ্ট সব ফাইল (ভিডিও, ফটো, ডকুমেন্ট, স্টিকার) সঠিকভাবে স্ক্যান করে।
 
-# ================= ANTI-BAN INDEXER SCRIPT =================
-# 🚀 মিডিয়া এবং টেক্সট/লিংক সাপোর্ট ফিক্স করা হয়েছে 
 def get_file_info(message):
     try:
-        if message.media:
-            media = getattr(message, message.media.value)
-            if hasattr(media, "file_id"):
-                caption = message.caption.html if message.caption else ""
-                return media.file_id, getattr(media, "file_unique_id", None), caption
+        media = message.document or message.video or message.audio or message.photo or message.animation or message.sticker or message.voice
+        if media:
+            f_id = media.file_id if not isinstance(media, list) else media[-1].file_id
+            cap = message.caption.html if message.caption else ""
+            return f_id, cap
     except Exception: pass
     
     text_content = message.text.html if message.text else ""
-    return None, None, text_content
+    return None, text_content
 
 @Client.on_message(filters.command("index_links") & filters.private)
 async def index_links_command(client: Client, message: Message):
@@ -330,57 +336,68 @@ async def index_links_command(client: Client, message: Message):
     if not text:
         return await message.reply_text("❌ **মেসেজে কোনো টেক্সট বা লিংক নেই!**")
         
-    # মেসেজ থেকে সব start= লিংকগুলো বের করা
     links = re.findall(r'start=([A-Za-z0-9-_=]+)', text)
     if not links:
         return await message.reply_text("❌ **এই মেসেজে কোনো পুরনো লিংক পাওয়া যায়নি!**")
         
     wait_msg = await message.reply_text(f"⏳ **{len(links)} টি লিংক পাওয়া গেছে! Indexing শুরু হচ্ছে...**")
     
-    # 🚀 আপনার অরিজিনাল পুরনো ডিবি চ্যানেল সেট করা হলো
-    active_db = -1002266490060
     success = 0
+    db_abs = abs(OLD_DB_CHANNEL)
     
     for payload in links:
-        # ডাটাবেসে আগে থেকেই থাকলে স্কিপ করবে
-        exists = await db.files_col1.find_one({'_id': payload})
-        if exists: continue
-        
         try:
             padding = "=" * (-len(payload) % 4)
             decoded = base64.urlsafe_b64decode(payload + padding).decode('utf-8')
             parts = decoded.split("-")
-            db_abs = abs(active_db)
             
             # 🚀 Single File Indexing
             if len(parts) == 2 or len(parts) == 4:
                 msg_id = int(int(parts[1] if len(parts) == 2 else parts[3]) / db_abs)
                 try:
-                    db_msg = await client.get_messages(active_db, msg_id)
-                    f_id, f_uniq, cap = get_file_info(db_msg)
-                    
-                    new_doc = {'_id': payload, 't': 's', 'c': active_db, 'm': msg_id}
-                    if f_id:
-                        new_doc['f'] = f_id
-                        new_doc['u'] = f_uniq
-                    if cap:
-                        new_doc['cap'] = cap
+                    db_msg = await client.get_messages(OLD_DB_CHANNEL, msg_id)
+                    if db_msg and not getattr(db_msg, "empty", True):
+                        f_id, cap = get_file_info(db_msg)
                         
-                    await db.files_col1.insert_one(new_doc)
-                    success += 1
+                        # ⚠️ চ্যানেল আইডি ('c') বাদ দিয়ে Pure Anti-Ban লজিকে সেভ করা হচ্ছে
+                        new_doc = {'t': 's'}
+                        if f_id: new_doc['f'] = f_id
+                        if cap: new_doc['cap'] = cap
+                        
+                        if f_id or cap:
+                            await ANTI_BAN_COL.update_one({'_id': payload}, {'$set': new_doc}, upsert=True)
+                            success += 1
                 except Exception:
                     pass
                     
             # 🚀 Batch File Indexing
             elif len(parts) == 3 or len(parts) == 5:
-                f_id = int(int(parts[1] if len(parts) == 3 else parts[3]) / db_abs)
-                l_id = int(int(parts[2] if len(parts) == 3 else parts[4]) / db_abs)
+                f_msg_id = int(int(parts[1] if len(parts) == 3 else parts[3]) / db_abs)
+                l_msg_id = int(int(parts[2] if len(parts) == 3 else parts[4]) / db_abs)
+                batch_files = []
                 
-                new_doc = {'_id': payload, 't': 'b', 'c': active_db, 'f_id': f_id, 'l_id': l_id}
-                await db.files_col1.insert_one(new_doc)
-                success += 1
-                
+                for msg_id in range(f_msg_id, l_msg_id + 1):
+                    try:
+                        db_msg = await client.get_messages(OLD_DB_CHANNEL, msg_id)
+                        if db_msg and not getattr(db_msg, "empty", True):
+                            f_id, cap = get_file_info(db_msg)
+                            if f_id: batch_files.append({'f': f_id, 'cap': cap})
+                            elif cap: batch_files.append({'cap': cap})
+                    except FloodWait as e:
+                        await asyncio.sleep(e.value + 1)
+                        db_msg = await client.get_messages(OLD_DB_CHANNEL, msg_id)
+                        if db_msg and not getattr(db_msg, "empty", True):
+                            f_id, cap = get_file_info(db_msg)
+                            if f_id: batch_files.append({'f': f_id, 'cap': cap})
+                            elif cap: batch_files.append({'cap': cap})
+                    except Exception: pass
+                    await asyncio.sleep(0.5)
+                    
+                if batch_files:
+                    await ANTI_BAN_COL.update_one({'_id': payload}, {'$set': {'t': 'b', 'files': batch_files}}, upsert=True)
+                    success += 1
+                    
         except Exception:
             pass
             
-    await wait_msg.edit_text(f"✅ **Permanent Indexing Completed!**\n\n🔗 **Total Links Scanned:** `{len(links)}`\n💾 **Permanently Saved to DB:** `{success}`\n\n🎉 এই লিংকগুলোর গ্লোবাল `file_id` এখন ডাটাবেসে সেভ করা আছে। ডিবি চ্যানেল ডিলিট হলেও ফাইল হারাবে না!")
+    await wait_msg.edit_text(f"✅ **Permanent Indexing Completed!**\n\n🔗 **Total Links Scanned:** `{len(links)}`\n💾 **Permanently Saved (with Pure Anti-Ban):** `{success}`\n\n🎉 এখন ডিবি চ্যানেল ডিলিট হলেও কোনো সমস্যা নেই!")
