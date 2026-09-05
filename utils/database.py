@@ -35,7 +35,6 @@ class Database:
             self.db3 = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_3, **pool_settings)[Config.MONGO_DB_NAME]
             self.files_col3 = self.db3.files
 
-    # 🚀 NEW: DB Stats Fetcher
     async def get_db_stats(self):
         stats = {}
         try:
@@ -57,7 +56,6 @@ class Database:
             
         return stats
 
-    # 🚀 NEW: Permanent File Deletion
     async def delete_file(self, unique_id: str):
         res1 = await self.files_col1.delete_one({'_id': unique_id})
         if res1.deleted_count > 0: return True
@@ -325,6 +323,7 @@ class Database:
 
     async def save_file(self, message_id: int, chat_id: int, file_id: str, file_unique_id: str, caption: str = ""):
         unique_id = await self.generate_unique_id()
+        # 🚀 SINGLE FILE: Always saves file_id, making it channel-independent
         doc = {'_id': unique_id, 't': 's', 'm': message_id, 'c': chat_id}
         if file_id: doc['f'] = file_id
         if file_unique_id: doc['u'] = file_unique_id
@@ -332,9 +331,15 @@ class Database:
         await self._insert_doc(doc)
         return unique_id
 
-    async def save_batch(self, first_id: int, last_id: int, chat_id: int):
+    # 🚀 BATCH SYSTEM UPGRADED: Accepts completely channel-independent file arrays
+    async def save_batch(self, first_id: int = 0, last_id: int = 0, chat_id: int = 0, files_data: list = None):
         unique_id = await self.generate_unique_id()
-        doc = {'_id': unique_id, 't': 'b', 'f_id': first_id, 'l_id': last_id, 'c': chat_id}
+        if files_data:
+            # New Permanent System: Saves global file_id array directly
+            doc = {'_id': unique_id, 't': 'b', 'files': files_data}
+        else:
+            # Old Legacy System Fallback: Saved only message IDs
+            doc = {'_id': unique_id, 't': 'b', 'f_id': first_id, 'l_id': last_id, 'c': chat_id}
         await self._insert_doc(doc)
         return unique_id
 
@@ -347,7 +352,7 @@ class Database:
         return doc
 
     async def get_file(self, unique_id: str):
-        projection = {'_id': 1, 't': 1, 'm': 1, 'c': 1, 'f': 1, 'u': 1, 'cap': 1, 'f_id': 1, 'l_id': 1}
+        projection = {'_id': 1, 't': 1, 'm': 1, 'c': 1, 'f': 1, 'u': 1, 'cap': 1, 'f_id': 1, 'l_id': 1, 'files': 1}
         doc = await self.files_col1.find_one({'_id': unique_id}, projection)
         if not doc and self.files_col2: doc = await self.files_col2.find_one({'_id': unique_id}, projection)
         if not doc and self.files_col3: doc = await self.files_col3.find_one({'_id': unique_id}, projection)
