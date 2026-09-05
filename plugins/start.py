@@ -3,7 +3,6 @@ import asyncio
 import random
 import gc
 import base64
-import motor.motor_asyncio
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery, LinkPreviewOptions, WebAppInfo
 from pyrogram.errors import FloodWait, ChannelInvalid, ChannelPrivate, ChatAdminRequired
@@ -18,11 +17,8 @@ from script import Script
 FILE_CACHE = {}
 MAX_CACHE_SIZE = 50
 
-# 🚀 SMART LEGACY DECODER & GLOBAL DB
+# 🚀 SMART LEGACY DECODER
 OLD_DB_CHANNEL = -1002266490060
-MONGO_CLIENT = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_1)
-DB_NAME = getattr(Config, "MONGO_DB_NAME", "filestorebot")
-ANTI_BAN_COL = MONGO_CLIENT[DB_NAME]['anti_ban_links']
 
 async def decode_legacy_link(payload: str):
     try:
@@ -47,24 +43,13 @@ async def get_cached_file(unique_id: str):
         val = FILE_CACHE.pop(unique_id)
         FILE_CACHE[unique_id] = val
         return val
-        
     file_data = await db.get_file(unique_id)
-    
-    # 🚀 PURE ANTI-BAN SUPPORT
-    if not file_data:
-        try:
-            file_data = await ANTI_BAN_COL.find_one({'_id': unique_id})
-        except Exception:
-            pass
-            
     if not file_data:
         file_data = await decode_legacy_link(unique_id)
-
     if file_data:
         FILE_CACHE[unique_id] = file_data
         if len(FILE_CACHE) > MAX_CACHE_SIZE:
             FILE_CACHE.pop(next(iter(FILE_CACHE)))
-            
     return file_data
 
 def clean_url(url: str) -> str:
@@ -116,26 +101,47 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
 
         if file_data.get('t') == 'b':
             if 'files' in file_data:
-                # 🚀 PURE ANTI-BAN BATCH MODE (No Channel Dependency)
+                # 🚀 PURE PERMANENT BATCH MODE (No Channel Needed)
                 total_files = len(file_data['files'])
                 wait_text = Script.BATCH_SENDING.format(total_files=total_files)
                 wait_msg = await reply_to_msg.reply_text(wait_text) if reply_to_msg else await client.send_message(chat_id, wait_text)
+                
+                success_sent = 0
                 for f_item in file_data['files']:
                     try:
                         final_cap = format_caption(f_item.get('cap', ''))
+                        sent_m = None
                         if 'f' in f_item:
                             sent_m = await client.send_cached_media(chat_id, f_item['f'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
                         else:
                             sent_m = await client.send_message(chat_id, final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
-                        if sent_m: sent_msg_ids.append(sent_m.id)
+                        if sent_m: 
+                            sent_msg_ids.append(sent_m.id)
+                            success_sent += 1
                     except Exception: pass
                     await asyncio.sleep(random.uniform(0.6, 1.8))
+                    
+                try: await wait_msg.delete()
+                except Exception: pass
+                
+                if success_sent == 0:
+                    if reply_to_msg: await reply_to_msg.reply_text(Script.MSG_NOT_FOUND_SERVER)
+                    else: await client.send_message(chat_id, Script.MSG_NOT_FOUND_SERVER)
+                    return
+                
+                if auto_delete_time > 0:
+                    success_msg = await client.send_message(chat_id, Script.BATCH_SUCCESS_WARN.format(auto_delete_time=auto_delete_time))
+                    sent_msg_ids.append(success_msg.id)
+                else: await client.send_message(chat_id, Script.BATCH_SUCCESS)
+                
             else:
-                # NORMAL BATCH MODE
+                # NORMAL BATCH MODE (Legacy)
                 db_chat_id, first_id, last_id = file_data['c'], file_data['f_id'], file_data['l_id']
                 total_files = (last_id - first_id) + 1
                 wait_text = Script.BATCH_SENDING.format(total_files=total_files)
                 wait_msg = await reply_to_msg.reply_text(wait_text) if reply_to_msg else await client.send_message(chat_id, wait_text)
+                
+                success_sent = 0
                 for msg_id in range(first_id, last_id + 1):
                     sent_m = None
                     try:
@@ -146,31 +152,40 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                                 sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
                             else:
                                 sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, protect_content=is_protected)
-                        if sent_m: sent_msg_ids.append(sent_m.id)
+                        if sent_m: 
+                            sent_msg_ids.append(sent_m.id)
+                            success_sent += 1
                         await asyncio.sleep(random.uniform(0.6, 1.8)) 
                     except FloodWait as e:
                         await asyncio.sleep(e.value + random.uniform(1.0, 2.5))
                         sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, protect_content=is_protected)
-                        if sent_m: sent_msg_ids.append(sent_m.id)
+                        if sent_m: 
+                            sent_msg_ids.append(sent_m.id)
+                            success_sent += 1
                     except Exception: pass
                     
-            try: await wait_msg.delete()
-            except Exception: pass
-            if auto_delete_time > 0:
-                success_msg = await client.send_message(chat_id, Script.BATCH_SUCCESS_WARN.format(auto_delete_time=auto_delete_time))
-                sent_msg_ids.append(success_msg.id)
-            else: await client.send_message(chat_id, Script.BATCH_SUCCESS)
+                try: await wait_msg.delete()
+                except Exception: pass
+                
+                if success_sent == 0:
+                    if reply_to_msg: await reply_to_msg.reply_text(Script.MSG_NOT_FOUND_SERVER)
+                    else: await client.send_message(chat_id, Script.MSG_NOT_FOUND_SERVER)
+                    return
+                
+                if auto_delete_time > 0:
+                    success_msg = await client.send_message(chat_id, Script.BATCH_SUCCESS_WARN.format(auto_delete_time=auto_delete_time))
+                    sent_msg_ids.append(success_msg.id)
+                else: await client.send_message(chat_id, Script.BATCH_SUCCESS)
                 
         else:
             if 'f' in file_data and 'c' not in file_data:
-                # 🚀 PURE ANTI-BAN SINGLE MODE (MEDIA - No Channel Dependency)
+                # 🚀 PURE PERMANENT SINGLE MODE
                 try:
                     final_cap = format_caption(file_data.get('cap', ''))
                     sent_m = await client.send_cached_media(chat_id, file_data['f'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
                 except Exception:
                     sent_m = await client.send_message(chat_id, Script.FILE_NOT_FOUND_SERVER)
             elif 'c' not in file_data and 'cap' in file_data:
-                # 🚀 PURE ANTI-BAN SINGLE MODE (TEXT ONLY)
                 try:
                     final_cap = format_caption(file_data.get('cap', ''))
                     sent_m = await client.send_message(chat_id, final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
@@ -179,6 +194,7 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
             else:
                 # NORMAL SINGLE MODE
                 db_chat_id, msg_id = file_data['c'], file_data['m']
+                sent_m = None
                 try:
                     db_msg = await client.get_messages(db_chat_id, msg_id)
                     if db_msg and not getattr(db_msg, "empty", True):
@@ -202,7 +218,7 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                     else:
                         sent_m = await client.send_message(chat_id, Script.MSG_NOT_FOUND_SERVER)
             
-            if sent_m: 
+            if sent_m and hasattr(sent_m, "id"): 
                 sent_msg_ids.append(sent_m.id)
                 if auto_delete_time > 0:
                     warn_msg = await client.send_message(chat_id, Script.SINGLE_SUCCESS_WARN.format(auto_delete_time=auto_delete_time))
@@ -273,8 +289,6 @@ async def handle_verification_check(client: Client, message: Message, user_id: i
             
         if main_btns:
             btn_list.append(main_btns)
-            
-        btn_list.append([InlineKeyboardButton(Script.BTN_BUY_PREMIUM, callback_data="show_premium_plans")])
             
         btn = InlineKeyboardMarkup(btn_list)
         await wait_msg.delete()
