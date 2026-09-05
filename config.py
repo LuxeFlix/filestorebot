@@ -17,7 +17,7 @@ class Config:
     MONGO_URI_2 = os.environ.get("MONGO_URI_2", "") 
     MONGO_URI_3 = os.environ.get("MONGO_URI_3", "") 
     
-    MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "FileStoreBotDB")
+    MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "filestorebot")
     
     CUSTOM_DOMAIN = os.environ.get("CUSTOM_DOMAIN", "https://luxeflix.souravbosu947.workers.dev")
     # 🚀 CUSTOM_PREFIX রিমুভ করা হয়েছে আপনার নির্দেশ অনুযায়ী
