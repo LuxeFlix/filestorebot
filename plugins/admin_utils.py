@@ -299,3 +299,67 @@ async def manual_remove_credit(client: Client, message: Message):
         await message.reply_text(Script.REMOVE_CREDIT_SUCCESS.format(amount=amount, user_id=user_id))
     except ValueError:
         await message.reply_text(Script.ID_AMOUNT_ERROR)
+        
+        
+        import base64
+
+# ================= DATABASE MIGRATION SCRIPT =================
+
+@Client.on_message(filters.command("migrate_db") & filters.private)
+async def migrate_database_command(client: Client, message: Message):
+    if message.from_user.id != Config.OWNER_ID: 
+        return # 🚀 SILENT IGNORE
+        
+    settings = await db.get_settings()
+    active_db = settings.get('active_db') or Config.DB_CHANNEL
+    
+    if not active_db:
+        return await message.reply_text("❌ **Please set DB channel first using /set_db !**")
+        
+    wait_msg = await message.reply_text("⏳ **Database Migration Started...**\nপুরনো লিংকগুলো স্ক্যান করে নতুন ডাটাবেসে ইনডেক্স করা হচ্ছে। দয়া করে অপেক্ষা করুন...")
+    
+    try:
+        # পুরোনো ডাটাবেসের links কালেকশন থেকে ডেটা নেওয়া হচ্ছে
+        old_links_col = db.db1['links']
+        cursor = old_links_col.find({})
+        
+        total = 0
+        success = 0
+        
+        async for doc in cursor:
+            total += 1
+            payload = doc.get('hash')
+            if not payload: continue
+            
+            # চেক করা হচ্ছে ডেটাটি আগেই মাইগ্রেট করা হয়েছে কি না
+            exists = await db.files_col1.find_one({'_id': payload})
+            if exists: continue
+            
+            # পুরোনো লজিক ডিকোড করে নতুন ফরমেটে সাজানো
+            try:
+                padding = "=" * (-len(payload) % 4)
+                decoded = base64.urlsafe_b64decode(payload + padding).decode('utf-8')
+                parts = decoded.split("-")
+                db_abs = abs(active_db)
+                
+                new_doc = None
+                if len(parts) == 3:
+                    new_doc = {'_id': payload, 't': 'b', 'c': active_db, 'f_id': int(int(parts[1]) / db_abs), 'l_id': int(int(parts[2]) / db_abs)}
+                elif len(parts) == 2:
+                    new_doc = {'_id': payload, 't': 's', 'c': active_db, 'm': int(int(parts[1]) / db_abs)}
+                elif len(parts) == 5:
+                    new_doc = {'_id': payload, 't': 'b', 'c': active_db, 'f_id': int(int(parts[3]) / db_abs), 'l_id': int(int(parts[4]) / db_abs)}
+                elif len(parts) == 4:
+                    new_doc = {'_id': payload, 't': 's', 'c': active_db, 'm': int(int(parts[3]) / db_abs)}
+                    
+                # নতুন ডাটাবেসে সেভ করা
+                if new_doc:
+                    await db.files_col1.insert_one(new_doc)
+                    success += 1
+            except Exception:
+                pass
+                
+        await wait_msg.edit_text(f"✅ **Migration Successfully Completed!**\n\n📦 **Total Old Links Found:** `{total}`\n🚀 **Successfully Migrated:** `{success}`\n\n🎉 এখন আপনার পুরোনো সব লিংক নতুন ডাটাবেসের নেটিভ লিংক হিসেবে কাজ করবে!")
+    except Exception as e:
+        await wait_msg.edit_text(f"❌ **Migration Failed:** `{str(e)}`")
+
