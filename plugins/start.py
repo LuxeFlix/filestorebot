@@ -3,6 +3,7 @@ import asyncio
 import random
 import gc
 import base64
+import motor.motor_asyncio
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery, LinkPreviewOptions, WebAppInfo
 from pyrogram.errors import FloodWait, ChannelInvalid, ChannelPrivate, ChatAdminRequired
@@ -17,8 +18,11 @@ from script import Script
 FILE_CACHE = {}
 MAX_CACHE_SIZE = 50
 
-# 🚀 SMART LEGACY DECODER: আপনার পুরনো লিংকের জন্য পার্মানেন্ট ডিকোডার
+# 🚀 SMART LEGACY DECODER & GLOBAL DB
 OLD_DB_CHANNEL = -1002266490060
+MONGO_CLIENT = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_1)
+DB_NAME = getattr(Config, "MONGO_DB_NAME", "filestorebot")
+ANTI_BAN_COL = MONGO_CLIENT[DB_NAME]['anti_ban_links']
 
 async def decode_legacy_link(payload: str):
     try:
@@ -43,11 +47,24 @@ async def get_cached_file(unique_id: str):
         val = FILE_CACHE.pop(unique_id)
         FILE_CACHE[unique_id] = val
         return val
+        
     file_data = await db.get_file(unique_id)
+    
+    # 🚀 PURE ANTI-BAN SUPPORT
+    if not file_data:
+        try:
+            file_data = await ANTI_BAN_COL.find_one({'_id': unique_id})
+        except Exception:
+            pass
+            
+    if not file_data:
+        file_data = await decode_legacy_link(unique_id)
+
     if file_data:
         FILE_CACHE[unique_id] = file_data
         if len(FILE_CACHE) > MAX_CACHE_SIZE:
             FILE_CACHE.pop(next(iter(FILE_CACHE)))
+            
     return file_data
 
 def clean_url(url: str) -> str:
@@ -98,80 +115,92 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
         is_protected = settings.get('protect_content', False)
 
         if file_data.get('t') == 'b':
-            db_chat_id = file_data['c']
-            first_id = file_data['f_id']
-            last_id = file_data['l_id']
-            total_files = (last_id - first_id) + 1
-            
-            wait_text = Script.BATCH_SENDING.format(total_files=total_files)
-            if reply_to_msg:
-                wait_msg = await reply_to_msg.reply_text(wait_text)
-            else:
-                wait_msg = await client.send_message(chat_id, wait_text)
-                
-            for msg_id in range(first_id, last_id + 1):
-                db_msg = None
-                final_cap = ""
-                sent_m = None
-                try:
-                    db_msg = await client.get_messages(db_chat_id, msg_id)
-                    if db_msg and not getattr(db_msg, "empty", True):
-                        if db_msg.media:
-                            orig_cap = db_msg.caption.html if db_msg.caption else ""
-                            final_cap = format_caption(orig_cap)
-                            sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
+            if 'files' in file_data:
+                # 🚀 PURE ANTI-BAN BATCH MODE (No Channel Dependency)
+                total_files = len(file_data['files'])
+                wait_text = Script.BATCH_SENDING.format(total_files=total_files)
+                wait_msg = await reply_to_msg.reply_text(wait_text) if reply_to_msg else await client.send_message(chat_id, wait_text)
+                for f_item in file_data['files']:
+                    try:
+                        final_cap = format_caption(f_item.get('cap', ''))
+                        if 'f' in f_item:
+                            sent_m = await client.send_cached_media(chat_id, f_item['f'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
                         else:
-                            sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, protect_content=is_protected)
-                    if sent_m: sent_msg_ids.append(sent_m.id)
-                    
-                    await asyncio.sleep(random.uniform(0.6, 1.8)) 
-                except FloodWait as e:
-                    await asyncio.sleep(e.value + random.uniform(1.0, 2.5))
-                    if db_msg and getattr(db_msg, "media", None):
-                        sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
-                    elif db_msg:
+                            sent_m = await client.send_message(chat_id, final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
+                        if sent_m: sent_msg_ids.append(sent_m.id)
+                    except Exception: pass
+                    await asyncio.sleep(random.uniform(0.6, 1.8))
+            else:
+                # NORMAL BATCH MODE
+                db_chat_id, first_id, last_id = file_data['c'], file_data['f_id'], file_data['l_id']
+                total_files = (last_id - first_id) + 1
+                wait_text = Script.BATCH_SENDING.format(total_files=total_files)
+                wait_msg = await reply_to_msg.reply_text(wait_text) if reply_to_msg else await client.send_message(chat_id, wait_text)
+                for msg_id in range(first_id, last_id + 1):
+                    sent_m = None
+                    try:
+                        db_msg = await client.get_messages(db_chat_id, msg_id)
+                        if db_msg and not getattr(db_msg, "empty", True):
+                            final_cap = format_caption(db_msg.caption.html if db_msg.caption else (db_msg.text.html if db_msg.text else ""))
+                            if db_msg.media:
+                                sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
+                            else:
+                                sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, protect_content=is_protected)
+                        if sent_m: sent_msg_ids.append(sent_m.id)
+                        await asyncio.sleep(random.uniform(0.6, 1.8)) 
+                    except FloodWait as e:
+                        await asyncio.sleep(e.value + random.uniform(1.0, 2.5))
                         sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, protect_content=is_protected)
-                    if sent_m: sent_msg_ids.append(sent_m.id)
-                except Exception:
-                    pass 
-            
-            try:
-                await wait_msg.delete()
-            except Exception:
-                pass
-                
+                        if sent_m: sent_msg_ids.append(sent_m.id)
+                    except Exception: pass
+                    
+            try: await wait_msg.delete()
+            except Exception: pass
             if auto_delete_time > 0:
                 success_msg = await client.send_message(chat_id, Script.BATCH_SUCCESS_WARN.format(auto_delete_time=auto_delete_time))
                 sent_msg_ids.append(success_msg.id)
-            else:
-                await client.send_message(chat_id, Script.BATCH_SUCCESS)
+            else: await client.send_message(chat_id, Script.BATCH_SUCCESS)
                 
         else:
-            db_chat_id = file_data['c']
-            msg_id = file_data['m']
-            sent_m = None
-            
-            try:
-                db_msg = await client.get_messages(db_chat_id, msg_id)
-                if db_msg and not getattr(db_msg, "empty", True):
-                    if db_msg.media:
-                        orig_cap = db_msg.caption.html if db_msg.caption else ""
+            if 'f' in file_data and 'c' not in file_data:
+                # 🚀 PURE ANTI-BAN SINGLE MODE (MEDIA - No Channel Dependency)
+                try:
+                    final_cap = format_caption(file_data.get('cap', ''))
+                    sent_m = await client.send_cached_media(chat_id, file_data['f'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
+                except Exception:
+                    sent_m = await client.send_message(chat_id, Script.FILE_NOT_FOUND_SERVER)
+            elif 'c' not in file_data and 'cap' in file_data:
+                # 🚀 PURE ANTI-BAN SINGLE MODE (TEXT ONLY)
+                try:
+                    final_cap = format_caption(file_data.get('cap', ''))
+                    sent_m = await client.send_message(chat_id, final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
+                except Exception:
+                    sent_m = await client.send_message(chat_id, Script.FILE_NOT_FOUND_SERVER)
+            else:
+                # NORMAL SINGLE MODE
+                db_chat_id, msg_id = file_data['c'], file_data['m']
+                try:
+                    db_msg = await client.get_messages(db_chat_id, msg_id)
+                    if db_msg and not getattr(db_msg, "empty", True):
+                        final_cap = format_caption(db_msg.caption.html if db_msg.caption else (db_msg.text.html if db_msg.text else ""))
+                        if db_msg.media:
+                            sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
+                        else:
+                            sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, protect_content=is_protected)
+                    else: raise Exception("Empty")
+                except (ChannelInvalid, ChannelPrivate, ChatAdminRequired, Exception):
+                    if 'f' in file_data:
+                        orig_cap = file_data.get('cap', '')
                         final_cap = format_caption(orig_cap)
-                        sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
+                        try:
+                            sent_m = await client.send_cached_media(chat_id, file_data['f'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
+                        except Exception:
+                            sent_m = await client.send_message(chat_id, Script.FILE_NOT_FOUND_SERVER)
+                    elif 'cap' in file_data:
+                        try: sent_m = await client.send_message(chat_id, format_caption(file_data.get('cap', '')), parse_mode=ParseMode.HTML, protect_content=is_protected)
+                        except Exception: sent_m = await client.send_message(chat_id, Script.FILE_NOT_FOUND_SERVER)
                     else:
-                        sent_m = await client.copy_message(chat_id, db_chat_id, msg_id, protect_content=is_protected)
-                else:
-                    raise Exception("Message empty")
-            except (ChannelInvalid, ChannelPrivate, ChatAdminRequired, Exception):
-                if 'f' in file_data:
-                    orig_cap = file_data.get('cap', '')
-                    final_cap = format_caption(orig_cap)
-                    try:
-                        sent_m = await client.send_cached_media(chat_id, file_data['f'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
-                    except Exception:
-                        sent_m = await client.send_message(chat_id, Script.FILE_NOT_FOUND_SERVER)
-                else:
-                    sent_m = await client.send_message(chat_id, Script.MSG_NOT_FOUND_SERVER)
+                        sent_m = await client.send_message(chat_id, Script.MSG_NOT_FOUND_SERVER)
             
             if sent_m: 
                 sent_msg_ids.append(sent_m.id)
@@ -376,7 +405,6 @@ async def start_command(client: Client, message: Message):
         creds = await db.get_credits(user_id)
         welcome_text += Script.CREDIT_TAG.format(creds=creds)
         
-    # 🚀 SMART BUTTON HIDING: Premium Plans বাটন রিমুভ করা হয়েছে
     btn_list = [[InlineKeyboardButton(Script.BTN_FOR_MORE, callback_data="for_more_menu")]]
     btn_list.append([InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu"), InlineKeyboardButton(Script.BTN_COMMANDS, callback_data="commands_menu")])
         
@@ -423,7 +451,6 @@ async def check_fsub_callback(client: Client, query: CallbackQuery):
 
     await deliver_file(client, query.message.chat.id, payload)
 
-# 🚀 CLOSE BUTTON FIX: close_data এবং close_menu দুটোই এড করা হয়েছে
 @Client.on_callback_query(filters.regex(r"^(for_more_menu|about_menu|commands_menu|back_to_start|close_menu|close_data|stats_menu)$"))
 async def start_menu_callbacks(client: Client, query: CallbackQuery):
     action = query.data
@@ -451,7 +478,6 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
             creds = await db.get_credits(user_id)
             welcome_text += Script.CREDIT_TAG.format(creds=creds)
 
-        # 🚀 SMART BUTTON HIDING: Premium Plans বাটন রিমুভ করা হয়েছে
         btn_list = [[InlineKeyboardButton(Script.BTN_FOR_MORE, callback_data="for_more_menu")]]
         btn_list.append([InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu"), InlineKeyboardButton(Script.BTN_COMMANDS, callback_data="commands_menu")])
             
