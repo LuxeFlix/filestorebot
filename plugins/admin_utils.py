@@ -308,8 +308,7 @@ async def manual_remove_credit(client: Client, message: Message):
     except ValueError:
         await message.reply_text(Script.ID_AMOUNT_ERROR)
 
-# ================= 🚀 PURE ANTI-BAN INDEXER SCRIPT =================
-# এই স্ক্রিপ্ট সব ফাইল (ভিডিও, ফটো, ডকুমেন্ট, স্টিকার) সঠিকভাবে স্ক্যান করে।
+# ================= 🚀 TRUE ANTI-BAN DEEP CLONE INDEXER =================
 
 def get_file_info(message):
     try:
@@ -319,7 +318,6 @@ def get_file_info(message):
             cap = message.caption.html if message.caption else ""
             return f_id, cap
     except Exception: pass
-    
     text_content = message.text.html if message.text else ""
     return None, text_content
 
@@ -336,41 +334,51 @@ async def index_links_command(client: Client, message: Message):
     if not text:
         return await message.reply_text("❌ **মেসেজে কোনো টেক্সট বা লিংক নেই!**")
         
-    links = re.findall(r'start=([A-Za-z0-9-_=]+)', text)
+    links = re.findall(r'start=([a-zA-Z0-9-_=]+)', text)
     if not links:
         return await message.reply_text("❌ **এই মেসেজে কোনো পুরনো লিংক পাওয়া যায়নি!**")
         
-    wait_msg = await message.reply_text(f"⏳ **{len(links)} টি লিংক পাওয়া গেছে! Indexing শুরু হচ্ছে...**")
+    settings = await db.get_settings()
+    active_db = settings.get('active_db') or Config.DB_CHANNEL
+    if not active_db:
+        return await message.reply_text("❌ **আগে /set_db দিয়ে আপনার নতুন ডিবি চ্যানেল সেট করুন!**")
+        
+    wait_msg = await message.reply_text(f"⏳ **{len(links)} টি লিংক পাওয়া গেছে! Deep Clone Indexing শুরু হচ্ছে...**\n*(পুরনো চ্যানেল থেকে নতুন চ্যানেলে ফাইল কপি করা হচ্ছে, একটু সময় লাগতে পারে)*")
     
     success = 0
     db_abs = abs(OLD_DB_CHANNEL)
     
     for payload in links:
+        # যদি আগে থেকেই Deep Clone করা থাকে, তাহলে স্কিপ করবে।
+        exists = await ANTI_BAN_COL.find_one({'_id': payload})
+        if exists and exists.get('c') == active_db:
+            continue 
+            
         try:
             padding = "=" * (-len(payload) % 4)
             decoded = base64.urlsafe_b64decode(payload + padding).decode('utf-8')
             parts = decoded.split("-")
             
-            # 🚀 Single File Indexing
+            # 🚀 Single File Clone
             if len(parts) == 2 or len(parts) == 4:
                 msg_id = int(int(parts[1] if len(parts) == 2 else parts[3]) / db_abs)
                 try:
                     db_msg = await client.get_messages(OLD_DB_CHANNEL, msg_id)
                     if db_msg and not getattr(db_msg, "empty", True):
-                        f_id, cap = get_file_info(db_msg)
+                        # ⚠️ ফাইলটি নতুন ডিবি চ্যানেলে ফিজিক্যালি কপি করা হচ্ছে!
+                        new_msg = await db_msg.copy(active_db)
+                        f_id, cap = get_file_info(new_msg)
                         
-                        # ⚠️ চ্যানেল আইডি ('c') বাদ দিয়ে Pure Anti-Ban লজিকে সেভ করা হচ্ছে
-                        new_doc = {'t': 's'}
+                        new_doc = {'t': 's', 'c': active_db, 'm': new_msg.id}
                         if f_id: new_doc['f'] = f_id
                         if cap: new_doc['cap'] = cap
-                        
-                        if f_id or cap:
-                            await ANTI_BAN_COL.update_one({'_id': payload}, {'$set': new_doc}, upsert=True)
-                            success += 1
+                            
+                        await ANTI_BAN_COL.update_one({'_id': payload}, {'$set': new_doc}, upsert=True)
+                        success += 1
                 except Exception:
                     pass
                     
-            # 🚀 Batch File Indexing
+            # 🚀 Batch File Clone
             elif len(parts) == 3 or len(parts) == 5:
                 f_msg_id = int(int(parts[1] if len(parts) == 3 else parts[3]) / db_abs)
                 l_msg_id = int(int(parts[2] if len(parts) == 3 else parts[4]) / db_abs)
@@ -380,24 +388,31 @@ async def index_links_command(client: Client, message: Message):
                     try:
                         db_msg = await client.get_messages(OLD_DB_CHANNEL, msg_id)
                         if db_msg and not getattr(db_msg, "empty", True):
-                            f_id, cap = get_file_info(db_msg)
-                            if f_id: batch_files.append({'f': f_id, 'cap': cap})
-                            elif cap: batch_files.append({'cap': cap})
+                            # ⚠️ ফাইলটি নতুন ডিবি চ্যানেলে ফিজিক্যালি কপি করা হচ্ছে!
+                            new_msg = await db_msg.copy(active_db)
+                            f_id, cap = get_file_info(new_msg)
+                            f_data = {'m': new_msg.id}
+                            if f_id: f_data['f'] = f_id
+                            if cap: f_data['cap'] = cap
+                            batch_files.append(f_data)
                     except FloodWait as e:
                         await asyncio.sleep(e.value + 1)
                         db_msg = await client.get_messages(OLD_DB_CHANNEL, msg_id)
                         if db_msg and not getattr(db_msg, "empty", True):
-                            f_id, cap = get_file_info(db_msg)
-                            if f_id: batch_files.append({'f': f_id, 'cap': cap})
-                            elif cap: batch_files.append({'cap': cap})
+                            new_msg = await db_msg.copy(active_db)
+                            f_id, cap = get_file_info(new_msg)
+                            f_data = {'m': new_msg.id}
+                            if f_id: f_data['f'] = f_id
+                            if cap: f_data['cap'] = cap
+                            batch_files.append(f_data)
                     except Exception: pass
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(1) # কপি করার মাঝে সেফটি গ্যাপ
                     
                 if batch_files:
-                    await ANTI_BAN_COL.update_one({'_id': payload}, {'$set': {'t': 'b', 'files': batch_files}}, upsert=True)
+                    await ANTI_BAN_COL.update_one({'_id': payload}, {'$set': {'t': 'b', 'c': active_db, 'files': batch_files}}, upsert=True)
                     success += 1
                     
         except Exception:
             pass
             
-    await wait_msg.edit_text(f"✅ **Permanent Indexing Completed!**\n\n🔗 **Total Links Scanned:** `{len(links)}`\n💾 **Permanently Saved (with Pure Anti-Ban):** `{success}`\n\n🎉 এখন ডিবি চ্যানেল ডিলিট হলেও কোনো সমস্যা নেই!")
+    await wait_msg.edit_text(f"✅ **Deep Clone Indexing Completed!**\n\n🔗 **Total Links Scanned:** `{len(links)}`\n💾 **Copied to New DB & Saved:** `{success}`\n\n🎉 এই ফাইলগুলো এখন সম্পূর্ণ স্বাধীনভাবে আপনার নতুন চ্যানেলে চলে এসেছে! পুরনো চ্যানেল ডিলিট করলেও কিচ্ছু হবে না!")
