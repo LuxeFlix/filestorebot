@@ -1,7 +1,9 @@
 import re
 import time
+import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, LinkPreviewOptions
+from pyrogram.errors import FloodWait
 from config import Config
 from utils.database import db
 from script import Script
@@ -9,12 +11,15 @@ from script import Script
 BATCH_STATE = {}
 
 def get_file_info(message):
-    if message.media:
-        media = getattr(message, message.media.value)
-        if hasattr(media, "file_id"):
-            caption = message.caption.html if message.caption else ""
-            return media.file_id, getattr(media, "file_unique_id", None), caption
-    return None, None, ""
+    try:
+        media = message.document or message.video or message.audio or message.photo or message.animation or message.sticker or message.voice
+        if media:
+            f_id = media.file_id if not isinstance(media, list) else media[-1].file_id
+            cap = message.caption.html if message.caption else ""
+            return f_id, getattr(media, "file_unique_id", None), cap
+    except Exception: pass
+    text_content = message.text.html if message.text else ""
+    return None, None, text_content
 
 def get_msg_id(message: Message):
     if hasattr(message, "forward_origin") and message.forward_origin and hasattr(message.forward_origin, 'message_id'):
@@ -63,7 +68,7 @@ async def message_handler(client: Client, message: Message):
 
     is_admin = await db.is_admin(user_id)
     if not is_admin:
-        return # 🚀 100% SILENT IGNORE (কোনো ওয়ার্নিং মেসেজ দেবে না)
+        return # 🚀 100% SILENT IGNORE
 
     settings = await db.get_settings()
     active_db = settings.get('active_db')
@@ -85,11 +90,37 @@ async def message_handler(client: Client, message: Message):
             if first_id > last_id:
                 first_id, last_id = last_id, first_id 
                 
-            wait_msg = await message.reply_text(Script.GEN_BATCH_LINK_WAIT)
+            wait_msg = await message.reply_text("⏳ **Generating Permanent Batch Link...**\n*(Scanning all files to save globally...)*")
             try:
-                unique_id = await db.save_batch(first_id, last_id, active_db)
-                custom_link = f"{Config.CUSTOM_DOMAIN}?start={unique_id}"
+                # 🚀 TRUE PERMANENT BATCH CREATION (Extracts global file_id for every message)
+                files_data = []
+                for m_id in range(first_id, last_id + 1):
+                    try:
+                        db_msg = await client.get_messages(active_db, m_id)
+                        if db_msg and not getattr(db_msg, "empty", True):
+                            f_id, f_uniq, cap = get_file_info(db_msg)
+                            f_data = {}
+                            if f_id: f_data['f'] = f_id
+                            if cap: f_data['cap'] = cap
+                            if f_data: files_data.append(f_data)
+                    except FloodWait as e:
+                        await asyncio.sleep(e.value + 1)
+                        db_msg = await client.get_messages(active_db, m_id)
+                        if db_msg and not getattr(db_msg, "empty", True):
+                            f_id, f_uniq, cap = get_file_info(db_msg)
+                            f_data = {}
+                            if f_id: f_data['f'] = f_id
+                            if cap: f_data['cap'] = cap
+                            if f_data: files_data.append(f_data)
+                    except Exception: pass
+                    await asyncio.sleep(0.3)
+
+                if files_data:
+                    unique_id = await db.save_batch(files_data=files_data)
+                else:
+                    unique_id = await db.save_batch(first_id, last_id, active_db) # Fallback
                 
+                custom_link = f"{Config.CUSTOM_DOMAIN}?start={unique_id}"
                 total_files = (last_id - first_id) + 1
                 reply_text = Script.BATCH_SUCCESS_LINK.format(total_files=total_files, custom_link=custom_link)
                 buttons = InlineKeyboardMarkup([[InlineKeyboardButton(Script.BTN_ORIGINAL_LINK, url=custom_link, style="success")]])
