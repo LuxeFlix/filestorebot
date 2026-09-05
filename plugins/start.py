@@ -2,6 +2,7 @@ import time
 import asyncio
 import random
 import gc
+import base64
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery, LinkPreviewOptions, WebAppInfo
 from pyrogram.errors import FloodWait, ChannelInvalid, ChannelPrivate, ChatAdminRequired
@@ -15,6 +16,27 @@ from script import Script
 
 FILE_CACHE = {}
 MAX_CACHE_SIZE = 50
+
+# 🚀 SMART LEGACY DECODER: আপনার পুরনো লিংকের জন্য পার্মানেন্ট ডিকোডার
+OLD_DB_CHANNEL = -1002266490060
+
+async def decode_legacy_link(payload: str):
+    try:
+        padding = "=" * (-len(payload) % 4)
+        decoded = base64.urlsafe_b64decode(payload + padding).decode('utf-8')
+        parts = decoded.split("-")
+        db_abs = abs(OLD_DB_CHANNEL)
+        
+        if len(parts) == 3:
+            return {'t': 'b', 'c': OLD_DB_CHANNEL, 'f_id': int(int(parts[1]) / db_abs), 'l_id': int(int(parts[2]) / db_abs)}
+        elif len(parts) == 2:
+            return {'t': 's', 'c': OLD_DB_CHANNEL, 'm': int(int(parts[1]) / db_abs)}
+        elif len(parts) == 5:
+            return {'t': 'b', 'c': OLD_DB_CHANNEL, 'f_id': int(int(parts[3]) / db_abs), 'l_id': int(int(parts[4]) / db_abs)}
+        elif len(parts) == 4:
+            return {'t': 's', 'c': OLD_DB_CHANNEL, 'm': int(int(parts[3]) / db_abs)}
+    except Exception:
+        return None
 
 async def get_cached_file(unique_id: str):
     if unique_id in FILE_CACHE:
@@ -354,9 +376,8 @@ async def start_command(client: Client, message: Message):
         creds = await db.get_credits(user_id)
         welcome_text += Script.CREDIT_TAG.format(creds=creds)
         
-    # 🚀 SMART BUTTON HIDING: বাটনগুলো সবার জন্য উন্মুক্ত করা হয়েছে
+    # 🚀 SMART BUTTON HIDING: Premium Plans বাটন রিমুভ করা হয়েছে
     btn_list = [[InlineKeyboardButton(Script.BTN_FOR_MORE, callback_data="for_more_menu")]]
-    btn_list.append([InlineKeyboardButton("💎 Premium Plans", callback_data="show_premium_plans")])
     btn_list.append([InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu"), InlineKeyboardButton(Script.BTN_COMMANDS, callback_data="commands_menu")])
         
     buttons = InlineKeyboardMarkup(btn_list)
@@ -402,13 +423,17 @@ async def check_fsub_callback(client: Client, query: CallbackQuery):
 
     await deliver_file(client, query.message.chat.id, payload)
 
-@Client.on_callback_query(filters.regex(r"^(for_more_menu|about_menu|commands_menu|back_to_start|close_menu|stats_menu)$"))
+# 🚀 CLOSE BUTTON FIX: close_data এবং close_menu দুটোই এড করা হয়েছে
+@Client.on_callback_query(filters.regex(r"^(for_more_menu|about_menu|commands_menu|back_to_start|close_menu|close_data|stats_menu)$"))
 async def start_menu_callbacks(client: Client, query: CallbackQuery):
     action = query.data
     user_id = query.from_user.id
     bot_name = client.me.first_name if client.me else (await client.get_me()).first_name
 
-    if action == "close_menu":
+    if action in ["close_menu", "close_data"]:
+        try:
+            await query.answer()
+        except Exception: pass
         try:
             await query.message.delete()
         except Exception: pass
@@ -426,9 +451,8 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
             creds = await db.get_credits(user_id)
             welcome_text += Script.CREDIT_TAG.format(creds=creds)
 
-        # 🚀 SMART BUTTON HIDING: সবার জন্য উন্মুক্ত
+        # 🚀 SMART BUTTON HIDING: Premium Plans বাটন রিমুভ করা হয়েছে
         btn_list = [[InlineKeyboardButton(Script.BTN_FOR_MORE, callback_data="for_more_menu")]]
-        btn_list.append([InlineKeyboardButton("• Pʀᴇᴍɪᴜᴍ Pʟᴀɴs •", callback_data="show_premium_plans")])
         btn_list.append([InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu"), InlineKeyboardButton(Script.BTN_COMMANDS, callback_data="commands_menu")])
             
         buttons = InlineKeyboardMarkup(btn_list)
@@ -447,9 +471,11 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
             developer=getattr(Config, "DEVELOPER_LINK", "https://t.me/")
         )
         
-        # 🚀 SMART BUTTON HIDING: Stats বাটন সবার জন্য উন্মুক্ত
         btn_list = []
-        btn_list.append([InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start"), InlineKeyboardButton(Script.BTN_STATS, callback_data="stats_menu")])
+        if is_admin:
+            btn_list.append([InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start"), InlineKeyboardButton(Script.BTN_STATS, callback_data="stats_menu")])
+        else:
+            btn_list.append([InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start")])
             
         buttons = InlineKeyboardMarkup(btn_list)
         try:
@@ -477,7 +503,6 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
         except Exception: pass
 
     elif action == "commands_menu":
-        # 🚀 লকের কোডটি রিমুভ করা হয়েছে যাতে সবাই মেনুটি দেখতে পারে
         buttons = InlineKeyboardMarkup([
             [InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start"), InlineKeyboardButton(Script.BTN_CLOSE, callback_data="close_menu")]
         ])
@@ -489,7 +514,6 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
         except Exception: pass
 
     elif action == "stats_menu":
-        # 🚀 লকের কোডটি রিমুভ করা হয়েছে যাতে সবাই মেনুটি দেখতে পারে
         total_users = await db.total_users()
         total_files = await db.total_files()
         total_banned = await db.total_banned_users()
