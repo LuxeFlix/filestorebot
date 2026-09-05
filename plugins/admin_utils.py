@@ -304,14 +304,18 @@ async def manual_remove_credit(client: Client, message: Message):
 
 
 # ================= ANTI-BAN INDEXER SCRIPT =================
-
+# 🚀 মিডিয়া এবং টেক্সট/লিংক সাপোর্ট ফিক্স করা হয়েছে 
 def get_file_info(message):
-    if message.media:
-        media = getattr(message, message.media.value)
-        if hasattr(media, "file_id"):
-            caption = message.caption.html if message.caption else ""
-            return media.file_id, getattr(media, "file_unique_id", None), caption
-    return None, None, ""
+    try:
+        if message.media:
+            media = getattr(message, message.media.value)
+            if hasattr(media, "file_id"):
+                caption = message.caption.html if message.caption else ""
+                return media.file_id, getattr(media, "file_unique_id", None), caption
+    except Exception: pass
+    
+    text_content = message.text.html if message.text else ""
+    return None, None, text_content
 
 @Client.on_message(filters.command("index_links") & filters.private)
 async def index_links_command(client: Client, message: Message):
@@ -333,8 +337,8 @@ async def index_links_command(client: Client, message: Message):
         
     wait_msg = await message.reply_text(f"⏳ **{len(links)} টি লিংক পাওয়া গেছে! Indexing শুরু হচ্ছে...**")
     
-    settings = await db.get_settings()
-    active_db = settings.get('active_db') or Config.DB_CHANNEL
+    # 🚀 আপনার অরিজিনাল পুরনো ডিবি চ্যানেল সেট করা হলো
+    active_db = -1002266490060
     success = 0
     
     for payload in links:
@@ -348,17 +352,22 @@ async def index_links_command(client: Client, message: Message):
             parts = decoded.split("-")
             db_abs = abs(active_db)
             
-            # 🚀 Single File Indexing (With Permanent file_id)
+            # 🚀 Single File Indexing
             if len(parts) == 2 or len(parts) == 4:
                 msg_id = int(int(parts[1] if len(parts) == 2 else parts[3]) / db_abs)
                 try:
                     db_msg = await client.get_messages(active_db, msg_id)
                     f_id, f_uniq, cap = get_file_info(db_msg)
                     
+                    new_doc = {'_id': payload, 't': 's', 'c': active_db, 'm': msg_id}
                     if f_id:
-                        new_doc = {'_id': payload, 't': 's', 'c': active_db, 'm': msg_id, 'f': f_id, 'u': f_uniq, 'cap': cap}
-                        await db.files_col1.insert_one(new_doc)
-                        success += 1
+                        new_doc['f'] = f_id
+                        new_doc['u'] = f_uniq
+                    if cap:
+                        new_doc['cap'] = cap
+                        
+                    await db.files_col1.insert_one(new_doc)
+                    success += 1
                 except Exception:
                     pass
                     
