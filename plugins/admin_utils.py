@@ -323,9 +323,9 @@ async def migrate_database_command(client: Client, message: Message):
     wait_msg = await message.reply_text("⏳ **Old Database-এর সাথে কানেক্ট করা হচ্ছে...**\nদয়া করে অপেক্ষা করুন...")
     
     try:
-        # 🚀 পুরনো ডাটাবেসের সাথে ডাইনামিক কানেকশন তৈরি
+        # 🚀 পুরনো ডাটাবেসের সাথে ডাইনামিক কানেকশন তৈরি (Fixed Config DB name reference)
         old_client = motor.motor_asyncio.AsyncIOMotorClient(old_mongo_url)
-        old_db = old_client[Config.DB_NAME]
+        old_db = old_client[Config.MONGO_DB_NAME]
         old_links_col = old_db['links']
         
         cursor = old_links_col.find({})
