@@ -2,7 +2,7 @@ import os
 import time
 import asyncio
 import base64
-import motor.motor_asyncio
+import re
 from datetime import timedelta
 from pyrogram import Client, filters
 from pyrogram.types import Message
@@ -302,68 +302,76 @@ async def manual_remove_credit(client: Client, message: Message):
     except ValueError:
         await message.reply_text(Script.ID_AMOUNT_ERROR)
 
-# ================= SERVER-TO-SERVER MIGRATION SCRIPT =================
 
-@Client.on_message(filters.command("migrate_db") & filters.private)
-async def migrate_database_command(client: Client, message: Message):
+# ================= ANTI-BAN INDEXER SCRIPT =================
+
+def get_file_info(message):
+    if message.media:
+        media = getattr(message, message.media.value)
+        if hasattr(media, "file_id"):
+            caption = message.caption.html if message.caption else ""
+            return media.file_id, getattr(media, "file_unique_id", None), caption
+    return None, None, ""
+
+@Client.on_message(filters.command("index_links") & filters.private)
+async def index_links_command(client: Client, message: Message):
     if message.from_user.id != Config.OWNER_ID: 
         return # 🚀 SILENT IGNORE
         
-    if len(message.command) < 2:
-        return await message.reply_text("❌ **সঠিক নিয়ম:** `/migrate_db <আপনার_পুরনো_DB_URL>`\n\n**উদাহরণ:** `/migrate_db mongodb+srv://old_user:password@cluster...`")
+    target_msg = message.reply_to_message
+    if not target_msg:
+        return await message.reply_text("❌ **সঠিক নিয়ম:** যেসব পুরনো লিংক সেভ করতে চান, সেই মেসেজে রিপ্লাই করে `/index_links` দিন।")
         
-    old_mongo_url = message.command[1]
+    text = target_msg.text or target_msg.caption
+    if not text:
+        return await message.reply_text("❌ **মেসেজে কোনো টেক্সট বা লিংক নেই!**")
+        
+    # মেসেজ থেকে সব start= লিংকগুলো বের করা
+    links = re.findall(r'start=([A-Za-z0-9-_=]+)', text)
+    if not links:
+        return await message.reply_text("❌ **এই মেসেজে কোনো পুরনো লিংক পাওয়া যায়নি!**")
+        
+    wait_msg = await message.reply_text(f"⏳ **{len(links)} টি লিংক পাওয়া গেছে! Indexing শুরু হচ্ছে...**")
     
     settings = await db.get_settings()
     active_db = settings.get('active_db') or Config.DB_CHANNEL
+    success = 0
     
-    if not active_db:
-        return await message.reply_text("❌ **আগে /set_db দিয়ে ডিবি চ্যানেল সেট করুন!**")
+    for payload in links:
+        # ডাটাবেসে আগে থেকেই থাকলে স্কিপ করবে
+        exists = await db.files_col1.find_one({'_id': payload})
+        if exists: continue
         
-    wait_msg = await message.reply_text("⏳ **Old Database-এর সাথে কানেক্ট করা হচ্ছে...**\nদয়া করে অপেক্ষা করুন...")
-    
-    try:
-        # 🚀 পুরনো ডাটাবেসের সাথে ডাইনামিক কানেকশন তৈরি (Fixed Config DB name reference)
-        old_client = motor.motor_asyncio.AsyncIOMotorClient(old_mongo_url)
-        old_db = old_client[Config.MONGO_DB_NAME]
-        old_links_col = old_db['links']
-        
-        cursor = old_links_col.find({})
-        total = 0
-        success = 0
-        
-        async for doc in cursor:
-            total += 1
-            payload = doc.get('hash')
-            if not payload: continue
+        try:
+            padding = "=" * (-len(payload) % 4)
+            decoded = base64.urlsafe_b64decode(payload + padding).decode('utf-8')
+            parts = decoded.split("-")
+            db_abs = abs(active_db)
             
-            # চেক করা হচ্ছে ডেটাটি আগেই নতুন ডিবিতে আছে কি না
-            exists = await db.files_col1.find_one({'_id': payload})
-            if exists: continue
-            
-            try:
-                padding = "=" * (-len(payload) % 4)
-                decoded = base64.urlsafe_b64decode(payload + padding).decode('utf-8')
-                parts = decoded.split("-")
-                db_abs = abs(active_db)
-                
-                new_doc = None
-                if len(parts) == 3:
-                    new_doc = {'_id': payload, 't': 'b', 'c': active_db, 'f_id': int(int(parts[1]) / db_abs), 'l_id': int(int(parts[2]) / db_abs)}
-                elif len(parts) == 2:
-                    new_doc = {'_id': payload, 't': 's', 'c': active_db, 'm': int(int(parts[1]) / db_abs)}
-                elif len(parts) == 5:
-                    new_doc = {'_id': payload, 't': 'b', 'c': active_db, 'f_id': int(int(parts[3]) / db_abs), 'l_id': int(int(parts[4]) / db_abs)}
-                elif len(parts) == 4:
-                    new_doc = {'_id': payload, 't': 's', 'c': active_db, 'm': int(int(parts[3]) / db_abs)}
+            # 🚀 Single File Indexing (With Permanent file_id)
+            if len(parts) == 2 or len(parts) == 4:
+                msg_id = int(int(parts[1] if len(parts) == 2 else parts[3]) / db_abs)
+                try:
+                    db_msg = await client.get_messages(active_db, msg_id)
+                    f_id, f_uniq, cap = get_file_info(db_msg)
                     
-                if new_doc:
-                    # নতুন ডাটাবেসে সেভ করা হচ্ছে
-                    await db.files_col1.insert_one(new_doc)
-                    success += 1
-            except Exception:
-                pass
+                    if f_id:
+                        new_doc = {'_id': payload, 't': 's', 'c': active_db, 'm': msg_id, 'f': f_id, 'u': f_uniq, 'cap': cap}
+                        await db.files_col1.insert_one(new_doc)
+                        success += 1
+                except Exception:
+                    pass
+                    
+            # 🚀 Batch File Indexing
+            elif len(parts) == 3 or len(parts) == 5:
+                f_id = int(int(parts[1] if len(parts) == 3 else parts[3]) / db_abs)
+                l_id = int(int(parts[2] if len(parts) == 3 else parts[4]) / db_abs)
                 
-        await wait_msg.edit_text(f"✅ **Migration Successfully Completed!**\n\n📦 **Total Old Links Found:** `{total}`\n🚀 **Successfully Migrated to New DB:** `{success}`")
-    except Exception as e:
-        await wait_msg.edit_text(f"❌ **Migration Failed:** `{str(e)}`")
+                new_doc = {'_id': payload, 't': 'b', 'c': active_db, 'f_id': f_id, 'l_id': l_id}
+                await db.files_col1.insert_one(new_doc)
+                success += 1
+                
+        except Exception:
+            pass
+            
+    await wait_msg.edit_text(f"✅ **Permanent Indexing Completed!**\n\n🔗 **Total Links Scanned:** `{len(links)}`\n💾 **Permanently Saved to DB:** `{success}`\n\n🎉 এই লিংকগুলোর গ্লোবাল `file_id` এখন ডাটাবেসে সেভ করা আছে। ডিবি চ্যানেল ডিলিট হলেও ফাইল হারাবে না!")
