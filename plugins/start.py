@@ -354,12 +354,10 @@ async def start_command(client: Client, message: Message):
         creds = await db.get_credits(user_id)
         welcome_text += Script.CREDIT_TAG.format(creds=creds)
         
-    # 🚀 SMART BUTTON HIDING: সাধারণ ইউজাররা COMMANDS বাটন দেখতে পাবে না
+    # 🚀 SMART BUTTON HIDING: বাটনগুলো সবার জন্য উন্মুক্ত করা হয়েছে
     btn_list = [[InlineKeyboardButton(Script.BTN_FOR_MORE, callback_data="for_more_menu")]]
-    if is_admin:
-        btn_list.append([InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu"), InlineKeyboardButton(Script.BTN_COMMANDS, callback_data="commands_menu")])
-    else:
-        btn_list.append([InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu")])
+    btn_list.append([InlineKeyboardButton("💎 Premium Plans", callback_data="show_premium_plans")])
+    btn_list.append([InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu"), InlineKeyboardButton(Script.BTN_COMMANDS, callback_data="commands_menu")])
         
     buttons = InlineKeyboardMarkup(btn_list)
     
@@ -428,12 +426,10 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
             creds = await db.get_credits(user_id)
             welcome_text += Script.CREDIT_TAG.format(creds=creds)
 
-        # 🚀 SMART BUTTON HIDING
+        # 🚀 SMART BUTTON HIDING: সবার জন্য উন্মুক্ত
         btn_list = [[InlineKeyboardButton(Script.BTN_FOR_MORE, callback_data="for_more_menu")]]
-        if is_admin:
-            btn_list.append([InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu"), InlineKeyboardButton(Script.BTN_COMMANDS, callback_data="commands_menu")])
-        else:
-            btn_list.append([InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu")])
+        btn_list.append([InlineKeyboardButton("• Pʀᴇᴍɪᴜᴍ Pʟᴀɴs •", callback_data="show_premium_plans")])
+        btn_list.append([InlineKeyboardButton(Script.BTN_ABOUT, callback_data="about_menu"), InlineKeyboardButton(Script.BTN_COMMANDS, callback_data="commands_menu")])
             
         buttons = InlineKeyboardMarkup(btn_list)
         try:
@@ -451,12 +447,9 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
             developer=getattr(Config, "DEVELOPER_LINK", "https://t.me/")
         )
         
-        # 🚀 SMART BUTTON HIDING: সাধারণ ইউজাররা STATS বাটন দেখতে পাবে না
+        # 🚀 SMART BUTTON HIDING: Stats বাটন সবার জন্য উন্মুক্ত
         btn_list = []
-        if is_admin:
-            btn_list.append([InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start"), InlineKeyboardButton(Script.BTN_STATS, callback_data="stats_menu")])
-        else:
-            btn_list.append([InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start")])
+        btn_list.append([InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start"), InlineKeyboardButton(Script.BTN_STATS, callback_data="stats_menu")])
             
         buttons = InlineKeyboardMarkup(btn_list)
         try:
@@ -484,9 +477,7 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
         except Exception: pass
 
     elif action == "commands_menu":
-        if not is_admin:
-            return # 🚀 SILENT IGNORE FRONTEND GUARD
-            
+        # 🚀 লকের কোডটি রিমুভ করা হয়েছে যাতে সবাই মেনুটি দেখতে পারে
         buttons = InlineKeyboardMarkup([
             [InlineKeyboardButton(Script.BTN_BACK_START, callback_data="back_to_start"), InlineKeyboardButton(Script.BTN_CLOSE, callback_data="close_menu")]
         ])
@@ -498,9 +489,7 @@ async def start_menu_callbacks(client: Client, query: CallbackQuery):
         except Exception: pass
 
     elif action == "stats_menu":
-        if not is_admin:
-            return # 🚀 SILENT IGNORE FRONTEND GUARD
-
+        # 🚀 লকের কোডটি রিমুভ করা হয়েছে যাতে সবাই মেনুটি দেখতে পারে
         total_users = await db.total_users()
         total_files = await db.total_files()
         total_banned = await db.total_banned_users()
