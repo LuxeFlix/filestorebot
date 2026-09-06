@@ -19,11 +19,11 @@ class Config:
     
     MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "filestorebot")
     
-    CUSTOM_DOMAIN = os.environ.get("CUSTOM_DOMAIN", "https://luxeflix.souravbosu947.workers.dev")
+    CUSTOM_DOMAIN = os.environ.get("CUSTOM_DOMAIN", "https://luxedramatg.pages.dev")
     # 🚀 CUSTOM_PREFIX রিমুভ করা হয়েছে আপনার নির্দেশ অনুযায়ী
     
     FSUB_CHANNELS = os.environ.get("FSUB_CHANNELS", "")
-    SUPPORT_LINK = os.environ.get("SUPPORT_LINK", "https://t.me/YourSupportGroup")
+    SUPPORT_LINK = os.environ.get("SUPPORT_LINK", "https://t.me/+anI2lp863iYzODM1")
 
     SHORTENER_URL = os.environ.get("SHORTENER_URL", "") 
     SHORTENER_API = os.environ.get("SHORTENER_API", "")
