@@ -185,11 +185,58 @@ class Database:
     async def total_users(self):
         return await self.users_col.count_documents({})
         
+    # 🚀 NEW: EXACT MEDIA FILE COUNTER (MongoDB Aggregation)
     async def total_files(self):
-        count = await self.files_col1.count_documents({})
-        if self.files_col2: count += await self.files_col2.count_documents({})
-        if self.files_col3: count += await self.files_col3.count_documents({})
-        return count
+        pipeline = [
+            {
+                "$project": {
+                    "file_count": {
+                        "$cond": {
+                            "if": { "$eq": ["$t", "b"] },
+                            "then": {
+                                "$cond": {
+                                    "if": { "$isArray": "$files" },
+                                    "then": { "$size": "$files" },
+                                    "else": {
+                                        "$cond": {
+                                            "if": { "$and": [{ "$isNumber": "$l_id" }, { "$isNumber": "$f_id" }] },
+                                            "then": { "$add": [{ "$subtract": ["$l_id", "$f_id"] }, 1] },
+                                            "else": 1
+                                        }
+                                    }
+                                }
+                            },
+                            "else": 1
+                        }
+                    }
+                }
+            },
+            {
+                "$group": {
+                    "_id": None,
+                    "total": { "$sum": "$file_count" }
+                }
+            }
+        ]
+        
+        total_count = 0
+        
+        async def get_collection_count(col):
+            try:
+                cursor = col.aggregate(pipeline)
+                async for doc in cursor:
+                    return doc.get("total", 0)
+            except Exception:
+                return await col.count_documents({})
+            return 0
+
+        total_count += await get_collection_count(self.files_col1)
+        if self.files_col2: 
+            total_count += await get_collection_count(self.files_col2)
+        if self.files_col3: 
+            total_count += await get_collection_count(self.files_col3)
+            
+        return total_count
         
     async def total_banned_users(self):
         return await self.banned_col.count_documents({})
@@ -323,7 +370,6 @@ class Database:
 
     async def save_file(self, message_id: int, chat_id: int, file_id: str, file_unique_id: str, caption: str = ""):
         unique_id = await self.generate_unique_id()
-        # 🚀 SINGLE FILE: Always saves file_id, making it channel-independent
         doc = {'_id': unique_id, 't': 's', 'm': message_id, 'c': chat_id}
         if file_id: doc['f'] = file_id
         if file_unique_id: doc['u'] = file_unique_id
@@ -331,14 +377,11 @@ class Database:
         await self._insert_doc(doc)
         return unique_id
 
-    # 🚀 BATCH SYSTEM UPGRADED: Accepts completely channel-independent file arrays
     async def save_batch(self, first_id: int = 0, last_id: int = 0, chat_id: int = 0, files_data: list = None):
         unique_id = await self.generate_unique_id()
         if files_data:
-            # New Permanent System: Saves global file_id array directly
             doc = {'_id': unique_id, 't': 'b', 'files': files_data}
         else:
-            # Old Legacy System Fallback: Saved only message IDs
             doc = {'_id': unique_id, 't': 'b', 'f_id': first_id, 'l_id': last_id, 'c': chat_id}
         await self._insert_doc(doc)
         return unique_id
