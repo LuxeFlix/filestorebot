@@ -17,12 +17,35 @@ from script import Script
 FILE_CACHE = {}
 MAX_CACHE_SIZE = 50
 
+# 🚀 SMART LEGACY DECODER
+OLD_DB_CHANNEL = -1002266490060
+
+async def decode_legacy_link(payload: str):
+    try:
+        padding = "=" * (-len(payload) % 4)
+        decoded = base64.urlsafe_b64decode(payload + padding).decode('utf-8')
+        parts = decoded.split("-")
+        db_abs = abs(OLD_DB_CHANNEL)
+        
+        if len(parts) == 3:
+            return {'t': 'b', 'c': OLD_DB_CHANNEL, 'f_id': int(int(parts[1]) / db_abs), 'l_id': int(int(parts[2]) / db_abs)}
+        elif len(parts) == 2:
+            return {'t': 's', 'c': OLD_DB_CHANNEL, 'm': int(int(parts[1]) / db_abs)}
+        elif len(parts) == 5:
+            return {'t': 'b', 'c': OLD_DB_CHANNEL, 'f_id': int(int(parts[3]) / db_abs), 'l_id': int(int(parts[4]) / db_abs)}
+        elif len(parts) == 4:
+            return {'t': 's', 'c': OLD_DB_CHANNEL, 'm': int(int(parts[3]) / db_abs)}
+    except Exception:
+        return None
+
 async def get_cached_file(unique_id: str):
     if unique_id in FILE_CACHE:
         val = FILE_CACHE.pop(unique_id)
         FILE_CACHE[unique_id] = val
         return val
     file_data = await db.get_file(unique_id)
+    if not file_data:
+        file_data = await decode_legacy_link(unique_id)
     if file_data:
         FILE_CACHE[unique_id] = file_data
         if len(FILE_CACHE) > MAX_CACHE_SIZE:
