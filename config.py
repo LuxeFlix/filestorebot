@@ -8,9 +8,9 @@ class Config:
     API_HASH = os.environ.get("API_HASH", "your_api_hash_here")
     BOT_TOKEN = os.environ.get("BOT_TOKEN", "your_bot_token_here")
     
-    OWNER_ID = 8320250081
+    OWNER_ID = 7023006442
     
-    DB_CHANNEL = int(os.environ.get("DB_CHANNEL", -1004440187778))
+    DB_CHANNEL = int(os.environ.get("DB_CHANNEL", -1002266490060))
     LOG_CHANNEL = int(os.environ.get("LOG_CHANNEL", -1004379104913))
     
     MONGO_URI_1 = os.environ.get("MONGO_URI_1", "your_primary_mongodb_url")
