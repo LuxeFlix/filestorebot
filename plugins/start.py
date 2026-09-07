@@ -17,12 +17,20 @@ from script import Script
 FILE_CACHE = {}
 MAX_CACHE_SIZE = 50
 
-# 🚀 ANTI-SPAM CACHE FOR FILE DELIVERY (৩ সেকেন্ড রেট লিমিট)
+# 🚀 ANTI-SPAM CACHE FOR FILE DELIVERY 
 DELIVERY_CACHE = {}
 DELIVERY_CACHE_TTL = 3
 
 # 🚀 SMART LEGACY DECODER
 OLD_DB_CHANNEL = -1002266490060
+
+# 🚀 SMART ID FORMATTER (-100 Bug Fix)
+def get_correct_chat_id(chat_id):
+    if not chat_id: return chat_id
+    chat_id_str = str(chat_id)
+    if not chat_id_str.startswith("-100") and chat_id_str.isdigit():
+        return int(f"-100{chat_id_str}")
+    return chat_id
 
 async def decode_legacy_link(payload: str):
     try:
@@ -111,7 +119,7 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                 wait_msg = await reply_to_msg.reply_text(wait_text) if reply_to_msg else await client.send_message(chat_id, wait_text)
                 
                 success_sent = 0
-                needs_db_update = False # 🚀 THE HEALING MAGIC TRACKER
+                needs_db_update = False 
                 for f_item in file_data['files']:
                     try:
                         final_cap = format_caption(f_item.get('cap', ''))
@@ -127,24 +135,24 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                         # 🚀 SMART HYBRID AUTO-HEALING FALLBACK (BATCH)
                         try:
                             if 'c' in file_data and 'm' in f_item:
-                                db_msg = await client.get_messages(file_data['c'], f_item['m'])
+                                real_c_id = get_correct_chat_id(file_data['c']) # 🚀 -100 Bug Fix Applied
+                                db_msg = await client.get_messages(real_c_id, f_item['m'])
                                 if db_msg and not getattr(db_msg, "empty", True):
                                     if db_msg.media: 
-                                        sent_m = await client.copy_message(chat_id, file_data['c'], f_item['m'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
-                                        # 🚀 THE HEALING MAGIC: Update file_id in background
+                                        sent_m = await client.copy_message(chat_id, real_c_id, f_item['m'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
                                         media = db_msg.document or db_msg.video or db_msg.audio or db_msg.photo or db_msg.animation or db_msg.sticker or db_msg.voice
                                         if media:
                                             f_item['f'] = media.file_id if not isinstance(media, list) else media[-1].file_id
                                             needs_db_update = True
                                     else: 
-                                        sent_m = await client.copy_message(chat_id, file_data['c'], f_item['m'], protect_content=is_protected)
+                                        sent_m = await client.copy_message(chat_id, real_c_id, f_item['m'], protect_content=is_protected)
                                     if sent_m: 
                                         sent_msg_ids.append(sent_m.id)
                                         success_sent += 1
                         except Exception: pass
                     await asyncio.sleep(random.uniform(0.6, 1.8))
                     
-                if needs_db_update: # 🚀 THE HEALING MAGIC: Save to Database permanently
+                if needs_db_update: 
                     try: await db.files_col1.update_one({'_id': unique_id}, {'$set': {'files': file_data['files']}}, upsert=True)
                     except Exception: pass
                     
@@ -163,7 +171,8 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                 
             else:
                 # NORMAL BATCH MODE (Legacy)
-                db_chat_id, first_id, last_id = file_data['c'], file_data['f_id'], file_data['l_id']
+                db_chat_id = get_correct_chat_id(file_data['c']) # 🚀 -100 Bug Fix Applied
+                first_id, last_id = file_data['f_id'], file_data['l_id']
                 total_files = (last_id - first_id) + 1
                 wait_text = Script.BATCH_SENDING.format(total_files=total_files)
                 wait_msg = await reply_to_msg.reply_text(wait_text) if reply_to_msg else await client.send_message(chat_id, wait_text)
@@ -214,18 +223,18 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                     # 🚀 SMART HYBRID AUTO-HEALING FALLBACK (SINGLE)
                     try:
                         if 'c' in file_data and 'm' in file_data:
-                            db_msg = await client.get_messages(file_data['c'], file_data['m'])
+                            real_c_id = get_correct_chat_id(file_data['c']) # 🚀 -100 Bug Fix Applied
+                            db_msg = await client.get_messages(real_c_id, file_data['m'])
                             if db_msg and not getattr(db_msg, "empty", True):
                                 if db_msg.media: 
-                                    sent_m = await client.copy_message(chat_id, file_data['c'], file_data['m'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
-                                    # 🚀 THE HEALING MAGIC: Update file_id in background
+                                    sent_m = await client.copy_message(chat_id, real_c_id, file_data['m'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
                                     media = db_msg.document or db_msg.video or db_msg.audio or db_msg.photo or db_msg.animation or db_msg.sticker or db_msg.voice
                                     if media:
                                         new_f_id = media.file_id if not isinstance(media, list) else media[-1].file_id
                                         try: await db.files_col1.update_one({'_id': unique_id}, {'$set': {'f': new_f_id}}, upsert=True)
                                         except Exception: pass
                                 else: 
-                                    sent_m = await client.copy_message(chat_id, file_data['c'], file_data['m'], protect_content=is_protected)
+                                    sent_m = await client.copy_message(chat_id, real_c_id, file_data['m'], protect_content=is_protected)
                         else:
                             sent_m = await client.send_message(chat_id, Script.FILE_NOT_FOUND_SERVER)
                     except Exception:
@@ -238,7 +247,8 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                     sent_m = await client.send_message(chat_id, Script.FILE_NOT_FOUND_SERVER)
             else:
                 # NORMAL SINGLE MODE
-                db_chat_id, msg_id = file_data['c'], file_data['m']
+                db_chat_id = get_correct_chat_id(file_data['c']) # 🚀 -100 Bug Fix Applied
+                msg_id = file_data['m']
                 sent_m = None
                 try:
                     db_msg = await client.get_messages(db_chat_id, msg_id)
@@ -273,7 +283,6 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
             asyncio.create_task(delete_after_delay(client, chat_id, sent_msg_ids, auto_delete_time * 60))
             
     except Exception as e:
-        # 🚀 HIDING RAW ERRORS: No internal Python errors will leak to users
         await client.send_message(chat_id, Script.DELIVERY_ERROR)
     finally:
         gc.collect()
@@ -356,10 +365,10 @@ async def handle_verification_check(client: Client, message: Message, user_id: i
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
     
-    # 🚀 ANTI-SPAM RATE LIMITER (স্প্যাম ক্লিক ব্লক করবে)
+    # 🚀 ANTI-SPAM RATE LIMITER
     current_time = time.time()
     if user_id in DELIVERY_CACHE and current_time < DELIVERY_CACHE[user_id]:
-        return # সাইলেন্টলি ইগনোর করবে
+        return
     DELIVERY_CACHE[user_id] = current_time + DELIVERY_CACHE_TTL
     
     if await db.is_banned(user_id):
