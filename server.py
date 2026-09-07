@@ -2,11 +2,19 @@ import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
+    
+    # 🚀 UptimeRobot-এর ফ্রি 'HEAD' মেথড সাপোর্ট করার জন্য
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+
+    # 🚀 সাধারণ 'GET' রিকোয়েস্ট সাপোর্ট করার জন্য
     def do_GET(self):
         self.send_response(200)
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
-        # Back4App-কে রেসপন্স পাঠাবে
+        # সার্ভারকে রেসপন্স পাঠাবে
         self.wfile.write(b"Telegram Bot is alive and running with 0 RAM!")
 
     # 🚀 Logs-এ অপ্রয়োজনীয় পিং মেসেজ অফ করার জন্য
