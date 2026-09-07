@@ -92,7 +92,6 @@ async def message_handler(client: Client, message: Message):
                 
             wait_msg = await message.reply_text("⏳ **Generating Permanent Batch Link...**\n*(Scanning all files to save globally...)*")
             try:
-                # 🚀 TRUE PERMANENT BATCH CREATION (Extracts global file_id for every message)
                 files_data = []
                 for m_id in range(first_id, last_id + 1):
                     try:
@@ -102,6 +101,7 @@ async def message_handler(client: Client, message: Message):
                             f_data = {}
                             if f_id: f_data['f'] = f_id
                             if cap: f_data['cap'] = cap
+                            f_data['m'] = m_id # 🚀 Hybrid Backup: মেসেজ আইডি সেভ
                             if f_data: files_data.append(f_data)
                     except FloodWait as e:
                         await asyncio.sleep(e.value + 1)
@@ -111,12 +111,13 @@ async def message_handler(client: Client, message: Message):
                             f_data = {}
                             if f_id: f_data['f'] = f_id
                             if cap: f_data['cap'] = cap
+                            f_data['m'] = m_id # 🚀 Hybrid Backup: মেসেজ আইডি সেভ
                             if f_data: files_data.append(f_data)
                     except Exception: pass
                     await asyncio.sleep(0.3)
 
                 if files_data:
-                    unique_id = await db.save_batch(files_data=files_data)
+                    unique_id = await db.save_batch(files_data=files_data, chat_id=active_db)
                 else:
                     unique_id = await db.save_batch(first_id, last_id, active_db) # Fallback
                 
