@@ -17,6 +17,10 @@ from script import Script
 FILE_CACHE = {}
 MAX_CACHE_SIZE = 50
 
+# 🚀 ANTI-SPAM CACHE FOR FILE DELIVERY (৩ সেকেন্ড রেট লিমিট)
+DELIVERY_CACHE = {}
+DELIVERY_CACHE_TTL = 3
+
 # 🚀 SMART LEGACY DECODER
 OLD_DB_CHANNEL = -1002266490060
 
@@ -269,6 +273,7 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
             asyncio.create_task(delete_after_delay(client, chat_id, sent_msg_ids, auto_delete_time * 60))
             
     except Exception as e:
+        # 🚀 HIDING RAW ERRORS: No internal Python errors will leak to users
         await client.send_message(chat_id, Script.DELIVERY_ERROR)
     finally:
         gc.collect()
@@ -350,6 +355,12 @@ async def handle_verification_check(client: Client, message: Message, user_id: i
 @Client.on_message(filters.command("start"))
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
+    
+    # 🚀 ANTI-SPAM RATE LIMITER (স্প্যাম ক্লিক ব্লক করবে)
+    current_time = time.time()
+    if user_id in DELIVERY_CACHE and current_time < DELIVERY_CACHE[user_id]:
+        return # সাইলেন্টলি ইগনোর করবে
+    DELIVERY_CACHE[user_id] = current_time + DELIVERY_CACHE_TTL
     
     if await db.is_banned(user_id):
         support_btn = []
