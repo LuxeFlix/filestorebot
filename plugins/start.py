@@ -107,6 +107,7 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                 wait_msg = await reply_to_msg.reply_text(wait_text) if reply_to_msg else await client.send_message(chat_id, wait_text)
                 
                 success_sent = 0
+                needs_db_update = False # 🚀 THE HEALING MAGIC TRACKER
                 for f_item in file_data['files']:
                     try:
                         final_cap = format_caption(f_item.get('cap', ''))
@@ -124,13 +125,24 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                             if 'c' in file_data and 'm' in f_item:
                                 db_msg = await client.get_messages(file_data['c'], f_item['m'])
                                 if db_msg and not getattr(db_msg, "empty", True):
-                                    if db_msg.media: sent_m = await client.copy_message(chat_id, file_data['c'], f_item['m'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
-                                    else: sent_m = await client.copy_message(chat_id, file_data['c'], f_item['m'], protect_content=is_protected)
+                                    if db_msg.media: 
+                                        sent_m = await client.copy_message(chat_id, file_data['c'], f_item['m'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
+                                        # 🚀 THE HEALING MAGIC: Update file_id in background
+                                        media = db_msg.document or db_msg.video or db_msg.audio or db_msg.photo or db_msg.animation or db_msg.sticker or db_msg.voice
+                                        if media:
+                                            f_item['f'] = media.file_id if not isinstance(media, list) else media[-1].file_id
+                                            needs_db_update = True
+                                    else: 
+                                        sent_m = await client.copy_message(chat_id, file_data['c'], f_item['m'], protect_content=is_protected)
                                     if sent_m: 
                                         sent_msg_ids.append(sent_m.id)
                                         success_sent += 1
                         except Exception: pass
                     await asyncio.sleep(random.uniform(0.6, 1.8))
+                    
+                if needs_db_update: # 🚀 THE HEALING MAGIC: Save to Database permanently
+                    try: await db.files_col1.update_one({'_id': unique_id}, {'$set': {'files': file_data['files']}}, upsert=True)
+                    except Exception: pass
                     
                 try: await wait_msg.delete()
                 except Exception: pass
@@ -200,8 +212,16 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                         if 'c' in file_data and 'm' in file_data:
                             db_msg = await client.get_messages(file_data['c'], file_data['m'])
                             if db_msg and not getattr(db_msg, "empty", True):
-                                if db_msg.media: sent_m = await client.copy_message(chat_id, file_data['c'], file_data['m'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
-                                else: sent_m = await client.copy_message(chat_id, file_data['c'], file_data['m'], protect_content=is_protected)
+                                if db_msg.media: 
+                                    sent_m = await client.copy_message(chat_id, file_data['c'], file_data['m'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
+                                    # 🚀 THE HEALING MAGIC: Update file_id in background
+                                    media = db_msg.document or db_msg.video or db_msg.audio or db_msg.photo or db_msg.animation or db_msg.sticker or db_msg.voice
+                                    if media:
+                                        new_f_id = media.file_id if not isinstance(media, list) else media[-1].file_id
+                                        try: await db.files_col1.update_one({'_id': unique_id}, {'$set': {'f': new_f_id}}, upsert=True)
+                                        except Exception: pass
+                                else: 
+                                    sent_m = await client.copy_message(chat_id, file_data['c'], file_data['m'], protect_content=is_protected)
                         else:
                             sent_m = await client.send_message(chat_id, Script.FILE_NOT_FOUND_SERVER)
                     except Exception:
