@@ -24,13 +24,15 @@ DELIVERY_CACHE_TTL = 3
 # 🚀 SMART LEGACY DECODER
 OLD_DB_CHANNEL = -1002266490060
 
-# 🚀 SMART ID FORMATTER (-100 Bug Fix)
+# 🚀 SMART ID FORMATTER (Bulletproof Fix)
 def get_correct_chat_id(chat_id):
     if not chat_id: return chat_id
-    chat_id_str = str(chat_id)
-    if not chat_id_str.startswith("-100") and chat_id_str.isdigit():
+    try:
+        chat_id_str = str(chat_id).strip()
+        if chat_id_str.startswith("-100"): return int(chat_id_str)
+        if chat_id_str.startswith("-"): return int(f"-100{chat_id_str[1:]}")
         return int(f"-100{chat_id_str}")
-    return chat_id
+    except Exception: return chat_id
 
 async def decode_legacy_link(payload: str):
     try:
