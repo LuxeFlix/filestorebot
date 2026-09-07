@@ -1,5 +1,6 @@
 import time
 import asyncio
+from datetime import datetime, timedelta
 from pyrogram.errors import UserNotParticipant, FloodWait
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -8,11 +9,9 @@ from utils.database import db
 from script import Script
 
 # 🚀 1. Asynchronous Semaphore (অদৃশ্য ট্রাফিক পুলিশ)
-# একসাথে সর্বোচ্চ ৫টি রিকোয়েস্ট টেলিগ্রাম API তে যাবে, বাকিরা কয়েক মিলি-সেকেন্ড লাইনে থাকবে
 fsub_semaphore = asyncio.Semaphore(5)
 
 # 🚀 2. Anti-Spam Micro-Delay (Double-Click Protection)
-# ইউজার স্প্যাম ক্লিক করলে বট ৩ সেকেন্ডের জন্য রিকোয়েস্ট হোল্ড করবে
 MICRO_CACHE = {}
 MICRO_CACHE_TTL = 3  # মাত্র ৩ সেকেন্ড
 
@@ -67,7 +66,9 @@ async def get_fsub_keyboard(client, missing_channels, payload):
     
     for idx, chat_id in enumerate(missing_channels, start=1):
         try:
-            expire_time = int(time.time()) + 600
+            # 🚀 100% FIXED: Pyrogram এর ভাষায় সঠিক datetime অবজেক্ট দেওয়া হলো
+            expire_time = datetime.now() + timedelta(minutes=10)
+            
             invite_link = await client.create_chat_invite_link(
                 chat_id=chat_id, 
                 creates_join_request=is_req_fsub, 
