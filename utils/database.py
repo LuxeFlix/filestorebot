@@ -185,7 +185,6 @@ class Database:
     async def total_users(self):
         return await self.users_col.count_documents({})
         
-    # 🚀 NEW: EXACT MEDIA FILE COUNTER (MongoDB Aggregation)
     async def total_files(self):
         pipeline = [
             {
@@ -380,7 +379,7 @@ class Database:
     async def save_batch(self, first_id: int = 0, last_id: int = 0, chat_id: int = 0, files_data: list = None):
         unique_id = await self.generate_unique_id()
         if files_data:
-            doc = {'_id': unique_id, 't': 'b', 'files': files_data}
+            doc = {'_id': unique_id, 't': 'b', 'files': files_data, 'c': chat_id} # 🚀 Hybrid Backup
         else:
             doc = {'_id': unique_id, 't': 'b', 'f_id': first_id, 'l_id': last_id, 'c': chat_id}
         await self._insert_doc(doc)
