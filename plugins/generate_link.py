@@ -10,6 +10,16 @@ from script import Script
 
 BATCH_STATE = {}
 
+# 🚀 SMART ID FORMATTER
+def get_correct_chat_id(chat_id):
+    if not chat_id: return chat_id
+    try:
+        chat_id_str = str(chat_id).strip()
+        if chat_id_str.startswith("-100"): return int(chat_id_str)
+        if chat_id_str.startswith("-"): return int(f"-100{chat_id_str[1:]}")
+        return int(f"-100{chat_id_str}")
+    except Exception: return chat_id
+
 def get_file_info(message):
     try:
         media = message.document or message.video or message.audio or message.photo or message.animation or message.sticker or message.voice
@@ -37,7 +47,7 @@ def get_msg_id(message: Message):
 async def start_batch_command(client: Client, message: Message):
     user_id = message.from_user.id
     if not await db.is_admin(user_id):
-        return # 🚀 SILENT IGNORE
+        return
     
     settings = await db.get_settings()
     if not settings.get('active_db'):
@@ -68,10 +78,11 @@ async def message_handler(client: Client, message: Message):
 
     is_admin = await db.is_admin(user_id)
     if not is_admin:
-        return # 🚀 100% SILENT IGNORE
+        return
 
     settings = await db.get_settings()
-    active_db = settings.get('active_db')
+    # 🚀 FIX APPLIED HERE:
+    active_db = get_correct_chat_id(settings.get('active_db'))
     if not active_db:
         return await message.reply_text(Script.NO_DB_SET)
 
@@ -101,7 +112,7 @@ async def message_handler(client: Client, message: Message):
                             f_data = {}
                             if f_id: f_data['f'] = f_id
                             if cap: f_data['cap'] = cap
-                            f_data['m'] = m_id # 🚀 Hybrid Backup: মেসেজ আইডি সেভ
+                            f_data['m'] = m_id
                             if f_data: files_data.append(f_data)
                     except FloodWait as e:
                         await asyncio.sleep(e.value + 1)
@@ -111,7 +122,7 @@ async def message_handler(client: Client, message: Message):
                             f_data = {}
                             if f_id: f_data['f'] = f_id
                             if cap: f_data['cap'] = cap
-                            f_data['m'] = m_id # 🚀 Hybrid Backup: মেসেজ আইডি সেভ
+                            f_data['m'] = m_id
                             if f_data: files_data.append(f_data)
                     except Exception: pass
                     await asyncio.sleep(0.3)
@@ -119,7 +130,7 @@ async def message_handler(client: Client, message: Message):
                 if files_data:
                     unique_id = await db.save_batch(files_data=files_data, chat_id=active_db)
                 else:
-                    unique_id = await db.save_batch(first_id, last_id, active_db) # Fallback
+                    unique_id = await db.save_batch(first_id, last_id, active_db)
                 
                 custom_link = f"{Config.CUSTOM_DOMAIN}?start={unique_id}"
                 total_files = (last_id - first_id) + 1
@@ -182,7 +193,8 @@ async def generate_single_link(client: Client, query):
     msg_id = int(query.data.split("_")[1])
     original_msg = await client.get_messages(query.message.chat.id, msg_id)
     settings = await db.get_settings()
-    active_db = settings.get('active_db')
+    # 🚀 FIX APPLIED HERE:
+    active_db = get_correct_chat_id(settings.get('active_db'))
     
     wait_msg = await query.message.edit_text(Script.PROCESSING_FILE)
     
