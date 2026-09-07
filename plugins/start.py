@@ -118,7 +118,18 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                         if sent_m: 
                             sent_msg_ids.append(sent_m.id)
                             success_sent += 1
-                    except Exception: pass
+                    except Exception:
+                        # 🚀 SMART HYBRID AUTO-HEALING FALLBACK (BATCH)
+                        try:
+                            if 'c' in file_data and 'm' in f_item:
+                                db_msg = await client.get_messages(file_data['c'], f_item['m'])
+                                if db_msg and not getattr(db_msg, "empty", True):
+                                    if db_msg.media: sent_m = await client.copy_message(chat_id, file_data['c'], f_item['m'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
+                                    else: sent_m = await client.copy_message(chat_id, file_data['c'], f_item['m'], protect_content=is_protected)
+                                    if sent_m: 
+                                        sent_msg_ids.append(sent_m.id)
+                                        success_sent += 1
+                        except Exception: pass
                     await asyncio.sleep(random.uniform(0.6, 1.8))
                     
                 try: await wait_msg.delete()
@@ -178,13 +189,23 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                 else: await client.send_message(chat_id, Script.BATCH_SUCCESS)
                 
         else:
-            if 'f' in file_data and 'c' not in file_data:
+            if 'f' in file_data:
                 # 🚀 PURE PERMANENT SINGLE MODE
                 try:
                     final_cap = format_caption(file_data.get('cap', ''))
                     sent_m = await client.send_cached_media(chat_id, file_data['f'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
                 except Exception:
-                    sent_m = await client.send_message(chat_id, Script.FILE_NOT_FOUND_SERVER)
+                    # 🚀 SMART HYBRID AUTO-HEALING FALLBACK (SINGLE)
+                    try:
+                        if 'c' in file_data and 'm' in file_data:
+                            db_msg = await client.get_messages(file_data['c'], file_data['m'])
+                            if db_msg and not getattr(db_msg, "empty", True):
+                                if db_msg.media: sent_m = await client.copy_message(chat_id, file_data['c'], file_data['m'], caption=final_cap, parse_mode=ParseMode.HTML, protect_content=is_protected)
+                                else: sent_m = await client.copy_message(chat_id, file_data['c'], file_data['m'], protect_content=is_protected)
+                        else:
+                            sent_m = await client.send_message(chat_id, Script.FILE_NOT_FOUND_SERVER)
+                    except Exception:
+                        sent_m = await client.send_message(chat_id, Script.FILE_NOT_FOUND_SERVER)
             elif 'c' not in file_data and 'cap' in file_data:
                 try:
                     final_cap = format_caption(file_data.get('cap', ''))
