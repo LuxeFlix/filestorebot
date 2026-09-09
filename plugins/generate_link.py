@@ -132,6 +132,10 @@ async def message_handler(client: Client, message: Message):
                 else:
                     unique_id = await db.save_batch(first_id, last_id, active_db)
                 
+                # 🚀 FIX: Ghost Link Prevention
+                if not unique_id:
+                    return await wait_msg.edit_text("❌ **Database save failed. Please try again.**")
+                
                 custom_link = f"{Config.CUSTOM_DOMAIN}?start={unique_id}"
                 total_files = (last_id - first_id) + 1
                 reply_text = Script.BATCH_SUCCESS_LINK.format(total_files=total_files, custom_link=custom_link)
@@ -162,6 +166,11 @@ async def message_handler(client: Client, message: Message):
                 f_id, f_uniq, cap = None, None, ""
                 
             unique_id = await db.save_file(db_msg_id, active_db, f_id, f_uniq, cap)
+            
+            # 🚀 FIX: Ghost Link Prevention
+            if not unique_id:
+                return await wait_msg.edit_text("❌ **Database save failed. Please try again.**")
+                
             custom_link = f"{Config.CUSTOM_DOMAIN}?start={unique_id}"
             
             reply_text = Script.SINGLE_SUCCESS_LINK.format(custom_link=custom_link)
@@ -220,6 +229,11 @@ async def generate_single_link(client: Client, query):
             final_msg_id = copied_msg.id
             
         unique_id = await db.save_file(final_msg_id, active_db, file_id, file_unique_id, caption)
+        
+        # 🚀 FIX: Ghost Link Prevention
+        if not unique_id:
+            return await wait_msg.edit_text("❌ **Database save failed. Please try again.**")
+            
         custom_link = f"{Config.CUSTOM_DOMAIN}?start={unique_id}"
         
         reply_text = Script.SAVED_IN_DB.format(custom_link=custom_link)
