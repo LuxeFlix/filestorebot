@@ -38,6 +38,10 @@ class Database:
             self.files_col3 = self.db3.files
             
         self._is_indexed = False 
+        
+        # 🚀 FIX: In-memory cache for settings to prevent DB overload
+        self._settings_cache = None
+        self._settings_cache_time = 0
 
     async def get_db_stats(self):
         stats = {}
@@ -111,7 +115,6 @@ class Database:
         today = datetime.now().strftime('%Y-%m-%d')
         last_date = doc.get('last_date', '')
         
-        # 🚀 FIX: 100% Atomic Conditional Update (Race Condition Prevented)
         if last_date != today:
             res = await self.premium_col.update_one(
                 {'_id': user_id, 'last_date': {'$ne': today}},
@@ -137,7 +140,6 @@ class Database:
         today = datetime.now().strftime('%Y-%m-%d')
         last_date = user.get('free_last_date', '')
         
-        # 🚀 FIX: 100% Atomic Conditional Update (Race Condition Prevented)
         if last_date != today:
             res = await self.users_col.update_one(
                 {'_id': user_id, 'free_last_date': {'$ne': today}},
@@ -162,7 +164,6 @@ class Database:
         return user.get('credits', 0) if user else 0
 
     async def use_credit(self, user_id: int):
-        # 🚀 FIX: 100% Atomic Update for Credit Race Condition
         result = await self.users_col.update_one(
             {'_id': user_id, 'credits': {'$gt': 0}}, 
             {'$inc': {'credits': -1}}
@@ -278,14 +279,16 @@ class Database:
         return bool(await self.join_reqs_col.find_one({'user_id': user_id, 'chat_id': chat_id}))
 
     async def get_fsub_channels(self):
-        settings = await self.settings_col.find_one({'_id': 'bot_settings'})
+        settings = await self.get_settings()
         return settings.get('fsub_channels', []) if settings else []
 
     async def add_fsub_channel(self, chat_id: int):
         await self.settings_col.update_one({'_id': 'bot_settings'}, {'$addToSet': {'fsub_channels': chat_id}}, upsert=True)
+        self._settings_cache = None # 🚀 FIX: Invalidate cache
 
     async def remove_fsub_channel(self, chat_id: int):
         await self.settings_col.update_one({'_id': 'bot_settings'}, {'$pull': {'fsub_channels': chat_id}}, upsert=True)
+        self._settings_cache = None # 🚀 FIX: Invalidate cache
 
     async def add_admin(self, user_id: int):
         if not await self.admins_col.find_one({'_id': user_id}):
@@ -308,6 +311,11 @@ class Database:
         return False
 
     async def get_settings(self):
+        # 🚀 FIX: Smart In-Memory Cache (60 seconds TTL)
+        current_time = time.time()
+        if self._settings_cache and (current_time - self._settings_cache_time) < 60:
+            return self._settings_cache
+
         settings = await self.settings_col.find_one({'_id': 'bot_settings'})
         default_db = Config.DB_CHANNEL if Config.DB_CHANNEL != 0 else None
         default_log = Config.LOG_CHANNEL if Config.LOG_CHANNEL != 0 else None
@@ -348,18 +356,22 @@ class Database:
             if not settings.get('log_channel') and default_log:
                 settings['log_channel'] = default_log
                 
+            self._settings_cache = settings
+            self._settings_cache_time = current_time
             return settings
+            
+        self._settings_cache = default_settings
+        self._settings_cache_time = current_time
         return default_settings
 
     async def update_settings(self, key: str, value):
         await self.settings_col.update_one({'_id': 'bot_settings'}, {'$set': {key: value}}, upsert=True)
+        self._settings_cache = None # 🚀 FIX: Invalidate cache
 
     async def generate_unique_id(self, length=50):
+        # 🚀 FIX: Removed the infinite loop and DB check. Ultra-fast generation!
         characters = string.ascii_letters + string.digits
-        while True:
-            unique_id = ''.join(secrets.choice(characters) for _ in range(length))
-            if not await self.get_file(unique_id):
-                return unique_id
+        return ''.join(secrets.choice(characters) for _ in range(length))
 
     async def _insert_doc(self, doc):
         try:
@@ -379,6 +391,21 @@ class Database:
                 except Exception:
                     pass
         raise Exception("Database Save Failed") 
+        
+    # 🚀 FIX: Multi-DB Auto-heal Support
+    async def update_file_data(self, unique_id: str, update_data: dict):
+        res1 = await self.files_col1.update_one({'_id': unique_id}, {'$set': update_data})
+        if res1.modified_count > 0: return True
+        
+        if self.files_col2:
+            res2 = await self.files_col2.update_one({'_id': unique_id}, {'$set': update_data})
+            if res2.modified_count > 0: return True
+            
+        if self.files_col3:
+            res3 = await self.files_col3.update_one({'_id': unique_id}, {'$set': update_data})
+            if res3.modified_count > 0: return True
+            
+        return False
 
     async def save_file(self, message_id: int, chat_id: int, file_id: str, file_unique_id: str, caption: str = ""):
         unique_id = await self.generate_unique_id()
