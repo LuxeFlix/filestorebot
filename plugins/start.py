@@ -137,7 +137,7 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                         # 🚀 SMART HYBRID AUTO-HEALING FALLBACK (BATCH)
                         try:
                             if 'c' in file_data and 'm' in f_item:
-                                real_c_id = get_correct_chat_id(file_data['c']) # 🚀 -100 Bug Fix Applied
+                                real_c_id = get_correct_chat_id(file_data['c']) 
                                 db_msg = await client.get_messages(real_c_id, f_item['m'])
                                 if db_msg and not getattr(db_msg, "empty", True):
                                     if db_msg.media: 
@@ -155,7 +155,8 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                     await asyncio.sleep(random.uniform(0.6, 1.8))
                     
                 if needs_db_update: 
-                    try: await db.files_col1.update_one({'_id': unique_id}, {'$set': {'files': file_data['files']}}, upsert=True)
+                    # 🚀 FIX: Multi-DB Auto-heal Support
+                    try: await db.update_file_data(unique_id, {'files': file_data['files']})
                     except Exception: pass
                     
                 try: await wait_msg.delete()
@@ -173,7 +174,7 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                 
             else:
                 # NORMAL BATCH MODE (Legacy)
-                db_chat_id = get_correct_chat_id(file_data['c']) # 🚀 -100 Bug Fix Applied
+                db_chat_id = get_correct_chat_id(file_data['c']) 
                 first_id, last_id = file_data['f_id'], file_data['l_id']
                 total_files = (last_id - first_id) + 1
                 wait_text = Script.BATCH_SENDING.format(total_files=total_files)
@@ -225,7 +226,7 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                     # 🚀 SMART HYBRID AUTO-HEALING FALLBACK (SINGLE)
                     try:
                         if 'c' in file_data and 'm' in file_data:
-                            real_c_id = get_correct_chat_id(file_data['c']) # 🚀 -100 Bug Fix Applied
+                            real_c_id = get_correct_chat_id(file_data['c']) 
                             db_msg = await client.get_messages(real_c_id, file_data['m'])
                             if db_msg and not getattr(db_msg, "empty", True):
                                 if db_msg.media: 
@@ -233,7 +234,8 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                                     media = db_msg.document or db_msg.video or db_msg.audio or db_msg.photo or db_msg.animation or db_msg.sticker or db_msg.voice
                                     if media:
                                         new_f_id = media.file_id if not isinstance(media, list) else media[-1].file_id
-                                        try: await db.files_col1.update_one({'_id': unique_id}, {'$set': {'f': new_f_id}}, upsert=True)
+                                        # 🚀 FIX: Multi-DB Auto-heal Support
+                                        try: await db.update_file_data(unique_id, {'f': new_f_id})
                                         except Exception: pass
                                 else: 
                                     sent_m = await client.copy_message(chat_id, real_c_id, file_data['m'], protect_content=is_protected)
@@ -249,7 +251,7 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
                     sent_m = await client.send_message(chat_id, Script.FILE_NOT_FOUND_SERVER)
             else:
                 # NORMAL SINGLE MODE
-                db_chat_id = get_correct_chat_id(file_data['c']) # 🚀 -100 Bug Fix Applied
+                db_chat_id = get_correct_chat_id(file_data['c']) 
                 msg_id = file_data['m']
                 sent_m = None
                 try:
@@ -368,12 +370,10 @@ async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
     current_time = time.time()
     
-    # 🚀 FIX: Clean expired delivery cache to prevent Memory Leak
     expired_keys = [k for k, v in DELIVERY_CACHE.items() if v <= current_time]
     for k in expired_keys:
         del DELIVERY_CACHE[k]
     
-    # 🚀 ANTI-SPAM RATE LIMITER
     if user_id in DELIVERY_CACHE and current_time < DELIVERY_CACHE[user_id]:
         return
     DELIVERY_CACHE[user_id] = current_time + DELIVERY_CACHE_TTL
