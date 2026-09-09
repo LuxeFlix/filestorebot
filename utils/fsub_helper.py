@@ -25,16 +25,14 @@ async def check_fsub(client, user_id):
     current_time = time.time()
     
     # 🚀 FIX: Clean expired cache to prevent Memory Leak
-    expired_keys = [k for k, v in MICRO_CACHE.items() if v <= current_time]
+    expired_keys = [k for k, v in MICRO_CACHE.items() if v.get('expires', 0) <= current_time]
     for k in expired_keys:
         del MICRO_CACHE[k]
     
-    # 🚀 Double-Click Spam Protection
-    if user_id in MICRO_CACHE and current_time < MICRO_CACHE[user_id]:
-        return [] # 🚀 FIX: Return empty instead of 'pass' to truly block the API call
+    # 🚀 Double-Click Spam Protection & FSub Security Bug FIXED
+    if user_id in MICRO_CACHE and current_time < MICRO_CACHE[user_id]['expires']:
+        return MICRO_CACHE[user_id]['missing'] # 🚀 FIX: Return actual cached channels instead of empty []
     
-    MICRO_CACHE[user_id] = current_time + MICRO_CACHE_TTL
-
     channels = await get_all_fsubs()
     missing_channels = []
     
@@ -62,6 +60,8 @@ async def check_fsub(client, user_id):
             except Exception:
                 pass 
                 
+    # 🚀 FIX: Store the actual result in cache
+    MICRO_CACHE[user_id] = {'expires': current_time + MICRO_CACHE_TTL, 'missing': missing_channels}            
     return missing_channels
 
 async def get_fsub_keyboard(client, missing_channels, payload):
