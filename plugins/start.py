@@ -287,7 +287,7 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
     except Exception as e:
         await client.send_message(chat_id, Script.DELIVERY_ERROR)
     finally:
-        pass # 🚀 FIX: CPU Overhead Fix (Removed gc.collect(), kept 'pass' to preserve line structure)
+        pass
 
 async def handle_verification_check(client: Client, message: Message, user_id: int, payload: str, settings: dict):
     if await db.is_admin(user_id) or await db.check_and_use_premium(user_id):
@@ -366,9 +366,14 @@ async def handle_verification_check(client: Client, message: Message, user_id: i
 @Client.on_message(filters.command("start"))
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
+    current_time = time.time()
+    
+    # 🚀 FIX: Clean expired delivery cache to prevent Memory Leak
+    expired_keys = [k for k, v in DELIVERY_CACHE.items() if v <= current_time]
+    for k in expired_keys:
+        del DELIVERY_CACHE[k]
     
     # 🚀 ANTI-SPAM RATE LIMITER
-    current_time = time.time()
     if user_id in DELIVERY_CACHE and current_time < DELIVERY_CACHE[user_id]:
         return
     DELIVERY_CACHE[user_id] = current_time + DELIVERY_CACHE_TTL
