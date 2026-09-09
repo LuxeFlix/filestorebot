@@ -8,8 +8,10 @@ class Database:
     def __init__(self):
         pool_settings = {
             "maxPoolSize": 50,
-            "minPoolSize": 5,
-            "maxIdleTimeMS": 50000
+            "serverSelectionTimeoutMS": 5000,
+            "connectTimeoutMS": 20000,
+            "retryWrites": True,
+            "retryReads": True
         }
         
         self.client1 = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_1, **pool_settings)
@@ -379,7 +381,7 @@ class Database:
     async def save_batch(self, first_id: int = 0, last_id: int = 0, chat_id: int = 0, files_data: list = None):
         unique_id = await self.generate_unique_id()
         if files_data:
-            doc = {'_id': unique_id, 't': 'b', 'files': files_data, 'c': chat_id} # 🚀 Hybrid Backup
+            doc = {'_id': unique_id, 't': 'b', 'files': files_data, 'c': chat_id} 
         else:
             doc = {'_id': unique_id, 't': 'b', 'f_id': first_id, 'l_id': last_id, 'c': chat_id}
         await self._insert_doc(doc)
