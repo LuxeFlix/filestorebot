@@ -287,7 +287,7 @@ async def deliver_file(client: Client, chat_id: int, payload: str, reply_to_msg=
     except Exception as e:
         await client.send_message(chat_id, Script.DELIVERY_ERROR)
     finally:
-        gc.collect()
+        pass # 🚀 FIX: CPU Overhead Fix (Removed gc.collect(), kept 'pass' to preserve line structure)
 
 async def handle_verification_check(client: Client, message: Message, user_id: int, payload: str, settings: dict):
     if await db.is_admin(user_id) or await db.check_and_use_premium(user_id):
