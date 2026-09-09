@@ -36,6 +36,8 @@ class Database:
         if Config.MONGO_URI_3:
             self.db3 = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_3, **pool_settings)[Config.MONGO_DB_NAME]
             self.files_col3 = self.db3.files
+            
+        self._is_indexed = False # 🚀 FIX: Lazy Indexing Flag
 
     async def get_db_stats(self):
         stats = {}
@@ -116,9 +118,10 @@ class Database:
         if used_today >= daily_limit:
             return False
             
+        # 🚀 FIX: Race Condition bypassed with $inc and $set
         await self.premium_col.update_one(
             {'_id': user_id},
-            {'$set': {'last_date': today, 'used_today': used_today + 1}}
+            {'$set': {'last_date': today}, '$inc': {'used_today': 1}}
         )
         return True
 
@@ -141,9 +144,10 @@ class Database:
         if used_today >= limit:
             return False
             
+        # 🚀 FIX: Race Condition bypassed with $inc and $set
         await self.users_col.update_one(
             {'_id': user_id},
-            {'$set': {'free_last_date': today, 'free_used_today': used_today + 1}}
+            {'$set': {'free_last_date': today}, '$inc': {'free_used_today': 1}}
         )
         return True
 
@@ -170,9 +174,8 @@ class Database:
         return token
 
     async def get_verify_token(self, token: str):
-        doc = await self.tokens_col.find_one({'_id': token})
-        if doc:
-            await self.tokens_col.delete_one({'_id': token})
+        # 🚀 FIX: find_one_and_delete ensures token is used only once (Race Condition fix)
+        doc = await self.tokens_col.find_one_and_delete({'_id': token})
         return doc
 
     async def verify_user(self, user_id: int, expire_time: int):
@@ -361,13 +364,21 @@ class Database:
     async def _insert_doc(self, doc):
         try:
             await self.files_col1.insert_one(doc)
+            return True # 🚀 FIX
         except Exception:
             if self.files_col2:
                 try:
                     await self.files_col2.insert_one(doc)
+                    return True # 🚀 FIX
                 except Exception:
-                    if self.files_col3:
-                        await self.files_col3.insert_one(doc)
+                    pass
+            if self.files_col3:
+                try:
+                    await self.files_col3.insert_one(doc)
+                    return True # 🚀 FIX
+                except Exception:
+                    pass
+        raise Exception("Database Save Failed") # 🚀 FIX: Raise error instead of silent fail
 
     async def save_file(self, message_id: int, chat_id: int, file_id: str, file_unique_id: str, caption: str = ""):
         unique_id = await self.generate_unique_id()
@@ -375,8 +386,12 @@ class Database:
         if file_id: doc['f'] = file_id
         if file_unique_id: doc['u'] = file_unique_id
         if caption: doc['cap'] = caption
-        await self._insert_doc(doc)
-        return unique_id
+        # 🚀 FIX: Handle raised exception
+        try:
+            await self._insert_doc(doc)
+            return unique_id
+        except Exception:
+            return None 
 
     async def save_batch(self, first_id: int = 0, last_id: int = 0, chat_id: int = 0, files_data: list = None):
         unique_id = await self.generate_unique_id()
@@ -384,11 +399,25 @@ class Database:
             doc = {'_id': unique_id, 't': 'b', 'files': files_data, 'c': chat_id} 
         else:
             doc = {'_id': unique_id, 't': 'b', 'f_id': first_id, 'l_id': last_id, 'c': chat_id}
-        await self._insert_doc(doc)
-        return unique_id
+        # 🚀 FIX: Handle raised exception
+        try:
+            await self._insert_doc(doc)
+            return unique_id
+        except Exception:
+            return None
 
     async def check_file_exists(self, file_unique_id: str):
         if not file_unique_id: return None
+        
+        # 🚀 FIX: Lazy Indexing on first query
+        if not self._is_indexed:
+            try:
+                await self.files_col1.create_index([("u", 1)], background=True, sparse=True)
+                if self.files_col2: await self.files_col2.create_index([("u", 1)], background=True, sparse=True)
+                if self.files_col3: await self.files_col3.create_index([("u", 1)], background=True, sparse=True)
+            except Exception: pass
+            self._is_indexed = True
+
         projection = {'_id': 1}
         doc = await self.files_col1.find_one({'u': file_unique_id}, projection)
         if not doc and self.files_col2: doc = await self.files_col2.find_one({'u': file_unique_id}, projection)
