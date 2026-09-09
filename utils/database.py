@@ -37,7 +37,7 @@ class Database:
             self.db3 = motor.motor_asyncio.AsyncIOMotorClient(Config.MONGO_URI_3, **pool_settings)[Config.MONGO_DB_NAME]
             self.files_col3 = self.db3.files
             
-        self._is_indexed = False # 🚀 FIX: Lazy Indexing Flag
+        self._is_indexed = False 
 
     async def get_db_stats(self):
         stats = {}
@@ -110,20 +110,20 @@ class Database:
         from datetime import datetime
         today = datetime.now().strftime('%Y-%m-%d')
         last_date = doc.get('last_date', '')
-        used_today = doc.get('used_today', 0)
         
+        # 🚀 FIX: 100% Atomic Conditional Update (Race Condition Prevented)
         if last_date != today:
-            used_today = 0
+            res = await self.premium_col.update_one(
+                {'_id': user_id, 'last_date': {'$ne': today}},
+                {'$set': {'last_date': today, 'used_today': 1}}
+            )
+            if res.modified_count > 0: return True
             
-        if used_today >= daily_limit:
-            return False
-            
-        # 🚀 FIX: Race Condition bypassed with $inc and $set
-        await self.premium_col.update_one(
-            {'_id': user_id},
-            {'$set': {'last_date': today}, '$inc': {'used_today': 1}}
+        res = await self.premium_col.update_one(
+            {'_id': user_id, 'last_date': today, 'used_today': {'$lt': daily_limit}},
+            {'$inc': {'used_today': 1}}
         )
-        return True
+        return res.modified_count > 0
 
     async def check_and_use_free_limit(self, user_id: int, limit: int):
         if limit <= 0: return False
@@ -136,20 +136,20 @@ class Database:
         from datetime import datetime
         today = datetime.now().strftime('%Y-%m-%d')
         last_date = user.get('free_last_date', '')
-        used_today = user.get('free_used_today', 0)
         
+        # 🚀 FIX: 100% Atomic Conditional Update (Race Condition Prevented)
         if last_date != today:
-            used_today = 0
+            res = await self.users_col.update_one(
+                {'_id': user_id, 'free_last_date': {'$ne': today}},
+                {'$set': {'free_last_date': today, 'free_used_today': 1}}
+            )
+            if res.modified_count > 0: return True
             
-        if used_today >= limit:
-            return False
-            
-        # 🚀 FIX: Race Condition bypassed with $inc and $set
-        await self.users_col.update_one(
-            {'_id': user_id},
-            {'$set': {'free_last_date': today}, '$inc': {'free_used_today': 1}}
+        res = await self.users_col.update_one(
+            {'_id': user_id, 'free_last_date': today, 'free_used_today': {'$lt': limit}},
+            {'$inc': {'free_used_today': 1}}
         )
-        return True
+        return res.modified_count > 0
 
     async def get_user(self, user_id: int):
         return await self.users_col.find_one({'_id': user_id})
@@ -162,11 +162,12 @@ class Database:
         return user.get('credits', 0) if user else 0
 
     async def use_credit(self, user_id: int):
-        user = await self.get_user(user_id)
-        if user and user.get('credits', 0) > 0:
-            await self.users_col.update_one({'_id': user_id}, {'$inc': {'credits': -1}})
-            return True
-        return False
+        # 🚀 FIX: 100% Atomic Update for Credit Race Condition
+        result = await self.users_col.update_one(
+            {'_id': user_id, 'credits': {'$gt': 0}}, 
+            {'$inc': {'credits': -1}}
+        )
+        return result.modified_count > 0
 
     async def create_verify_token(self, user_id: int, payload: str):
         token = secrets.token_hex(6)
@@ -174,7 +175,6 @@ class Database:
         return token
 
     async def get_verify_token(self, token: str):
-        # 🚀 FIX: find_one_and_delete ensures token is used only once (Race Condition fix)
         doc = await self.tokens_col.find_one_and_delete({'_id': token})
         return doc
 
@@ -364,21 +364,21 @@ class Database:
     async def _insert_doc(self, doc):
         try:
             await self.files_col1.insert_one(doc)
-            return True # 🚀 FIX
+            return True 
         except Exception:
             if self.files_col2:
                 try:
                     await self.files_col2.insert_one(doc)
-                    return True # 🚀 FIX
+                    return True 
                 except Exception:
                     pass
             if self.files_col3:
                 try:
                     await self.files_col3.insert_one(doc)
-                    return True # 🚀 FIX
+                    return True 
                 except Exception:
                     pass
-        raise Exception("Database Save Failed") # 🚀 FIX: Raise error instead of silent fail
+        raise Exception("Database Save Failed") 
 
     async def save_file(self, message_id: int, chat_id: int, file_id: str, file_unique_id: str, caption: str = ""):
         unique_id = await self.generate_unique_id()
@@ -386,7 +386,6 @@ class Database:
         if file_id: doc['f'] = file_id
         if file_unique_id: doc['u'] = file_unique_id
         if caption: doc['cap'] = caption
-        # 🚀 FIX: Handle raised exception
         try:
             await self._insert_doc(doc)
             return unique_id
@@ -399,7 +398,6 @@ class Database:
             doc = {'_id': unique_id, 't': 'b', 'files': files_data, 'c': chat_id} 
         else:
             doc = {'_id': unique_id, 't': 'b', 'f_id': first_id, 'l_id': last_id, 'c': chat_id}
-        # 🚀 FIX: Handle raised exception
         try:
             await self._insert_doc(doc)
             return unique_id
@@ -409,7 +407,6 @@ class Database:
     async def check_file_exists(self, file_unique_id: str):
         if not file_unique_id: return None
         
-        # 🚀 FIX: Lazy Indexing on first query
         if not self._is_indexed:
             try:
                 await self.files_col1.create_index([("u", 1)], background=True, sparse=True)
