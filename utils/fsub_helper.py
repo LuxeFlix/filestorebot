@@ -24,11 +24,16 @@ async def get_all_fsubs():
 async def check_fsub(client, user_id):
     current_time = time.time()
     
+    # 🚀 FIX: Clean expired cache to prevent Memory Leak
+    expired_keys = [k for k, v in MICRO_CACHE.items() if v <= current_time]
+    for k in expired_keys:
+        del MICRO_CACHE[k]
+    
     # 🚀 Double-Click Spam Protection
     if user_id in MICRO_CACHE and current_time < MICRO_CACHE[user_id]:
-        pass # ৩ সেকেন্ডের মধ্যে একাধিক ক্লিক করলে নতুন করে API কল যাবে না
-    else:
-        MICRO_CACHE[user_id] = current_time + MICRO_CACHE_TTL
+        return [] # 🚀 FIX: Return empty instead of 'pass' to truly block the API call
+    
+    MICRO_CACHE[user_id] = current_time + MICRO_CACHE_TTL
 
     channels = await get_all_fsubs()
     missing_channels = []
@@ -66,7 +71,6 @@ async def get_fsub_keyboard(client, missing_channels, payload):
     
     for idx, chat_id in enumerate(missing_channels, start=1):
         try:
-            # 🚀 100% FIXED: Pyrogram এর ভাষায় সঠিক datetime অবজেক্ট দেওয়া হলো
             expire_time = datetime.now() + timedelta(minutes=10)
             
             invite_link = await client.create_chat_invite_link(
