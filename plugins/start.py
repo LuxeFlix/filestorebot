@@ -527,6 +527,12 @@ async def check_fsub_callback(client: Client, query: CallbackQuery):
         pass
         
     settings = await db.get_settings()
+    
+    # 🚀 FIX: Private Mode Bypass Fix (Checks if mode is private before giving file)
+    is_admin = await db.is_admin(user_id)
+    if settings.get('mode') == 'private' and not is_admin:
+        return await query.answer(Script.PRIVATE_MODE_MSG, show_alert=True)
+        
     if settings.get('shortlink_status'):
         is_locked = await handle_verification_check(client, query.message, user_id, payload, settings)
         if is_locked: return
