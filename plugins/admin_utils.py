@@ -167,7 +167,8 @@ async def dbroadcast_message(client: Client, message: Message):
     for i in range(0, len(users_list), 50):
         batch = users_list[i:i+50]
         tasks = [send_msg(user['_id'], b_msg, mins, client, True) for user in batch]
-        results = await asyncio.gather(*tasks)
+        # 🚀 FIX: return_exceptions=True prevents one blocked user from crashing the whole broadcast loop
+        results = await asyncio.gather(*tasks, return_exceptions=True)
         sent += results.count(200)
         failed += results.count(400)
         await asyncio.sleep(1) 
@@ -194,7 +195,8 @@ async def broadcast_message(client: Client, message: Message):
     for i in range(0, len(users_list), 50):
         batch = users_list[i:i+50]
         tasks = [send_msg(user['_id'], b_msg, 0, client, False) for user in batch]
-        results = await asyncio.gather(*tasks)
+        # 🚀 FIX: return_exceptions=True prevents one blocked user from crashing the whole broadcast loop
+        results = await asyncio.gather(*tasks, return_exceptions=True)
         sent += results.count(200)
         failed += results.count(400)
         await asyncio.sleep(1)
