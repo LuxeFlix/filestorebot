@@ -15,6 +15,9 @@ fsub_semaphore = asyncio.Semaphore(5)
 MICRO_CACHE = {}
 MICRO_CACHE_TTL = 3  # মাত্র ৩ সেকেন্ড
 
+# 🚀 3. Invite Link Cache (FloodWait Protection)
+INVITE_LINK_CACHE = {}
+
 async def get_all_fsubs():
     db_fsubs = await db.get_fsub_channels()
     config_fsubs = [int(x) for x in str(Config.FSUB_CHANNELS).split(",") if x.strip()] if Config.FSUB_CHANNELS else []
@@ -69,16 +72,25 @@ async def get_fsub_keyboard(client, missing_channels, payload):
     settings = await db.get_settings()
     is_req_fsub = settings.get('req_fsub', False)
     
+    current_time = time.time()
+    
     for idx, chat_id in enumerate(missing_channels, start=1):
         try:
-            expire_time = datetime.now() + timedelta(minutes=10)
-            
-            invite_link = await client.create_chat_invite_link(
-                chat_id=chat_id, 
-                creates_join_request=is_req_fsub, 
-                expire_date=expire_time
-            )
-            buttons.append([InlineKeyboardButton(Script.BTN_JOIN_CHANNEL.format(idx=idx), url=invite_link.invite_link)])
+            # 🚀 FIX: Cache Invite Links to prevent API limits
+            cache_key = f"{chat_id}_{is_req_fsub}"
+            if cache_key in INVITE_LINK_CACHE and current_time < INVITE_LINK_CACHE[cache_key]['expires']:
+                invite_url = INVITE_LINK_CACHE[cache_key]['link']
+            else:
+                expire_time = datetime.now() + timedelta(minutes=10)
+                invite_link = await client.create_chat_invite_link(
+                    chat_id=chat_id, 
+                    creates_join_request=is_req_fsub, 
+                    expire_date=expire_time
+                )
+                invite_url = invite_link.invite_link
+                INVITE_LINK_CACHE[cache_key] = {'link': invite_url, 'expires': current_time + 500} # Cache for ~8 minutes
+                
+            buttons.append([InlineKeyboardButton(Script.BTN_JOIN_CHANNEL.format(idx=idx), url=invite_url)])
             
         except Exception as e:
             print(f"Error creating invite link for {chat_id}: {e}")
