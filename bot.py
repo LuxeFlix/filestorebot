@@ -30,7 +30,6 @@ async def setup_indexes():
             await db.files_col3.create_index([("_id", 1)])
             
         await db.tokens_col.create_index("createdAt", expireAfterSeconds=86400)
-        await db.tokens_col.create_index("date", expireAfterSeconds=86400)
         print("⚡ MongoDB Auto-Indexing & TTL Complete!")
     except Exception as e:
         print(f"Indexing Error: {e}")
@@ -40,7 +39,7 @@ if __name__ == "__main__":
     threading.Thread(target=keep_alive, daemon=True).start()
     
     # 🚀 Safe Loop Initialization
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(setup_indexes())
     
