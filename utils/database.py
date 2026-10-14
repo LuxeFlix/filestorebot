@@ -171,8 +171,9 @@ class Database:
         return result.modified_count > 0
 
     async def create_verify_token(self, user_id: int, payload: str):
+        from datetime import datetime
         token = secrets.token_hex(6)
-        await self.tokens_col.insert_one({'_id': token, 'user_id': user_id, 'payload': payload, 'createdAt': int(time.time())})
+        await self.tokens_col.insert_one({'_id': token, 'user_id': user_id, 'payload': payload, 'createdAt': int(time.time()), 'date': datetime.utcnow()})
         return token
 
     async def get_verify_token(self, token: str):
