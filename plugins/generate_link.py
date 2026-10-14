@@ -34,8 +34,6 @@ def get_file_info(message):
 def get_msg_id(message: Message):
     if hasattr(message, "forward_origin") and message.forward_origin and hasattr(message.forward_origin, 'message_id'):
         return message.forward_origin.message_id
-    elif hasattr(message, "forward_from_message_id") and message.forward_from_message_id:
-        return message.forward_from_message_id
         
     if message.text:
         match = re.search(r"t\.me/(?:c/)?(?:[a-zA-Z0-9_]+|-?\d+)/(\d+)", message.text)
@@ -215,14 +213,10 @@ async def generate_single_link(client: Client, query):
         
         if hasattr(original_msg, "forward_origin") and original_msg.forward_origin and hasattr(original_msg.forward_origin, 'chat'):
             forward_chat_id = original_msg.forward_origin.chat.id
-        elif hasattr(original_msg, "forward_from_chat") and original_msg.forward_from_chat:
-            forward_chat_id = original_msg.forward_from_chat.id
             
         if forward_chat_id and forward_chat_id == active_db:
             if hasattr(original_msg, "forward_origin") and original_msg.forward_origin and hasattr(original_msg.forward_origin, 'message_id'):
                 final_msg_id = original_msg.forward_origin.message_id
-            elif hasattr(original_msg, "forward_from_message_id") and original_msg.forward_from_message_id:
-                final_msg_id = original_msg.forward_from_message_id
         
         if not final_msg_id:
             copied_msg = await original_msg.copy(chat_id=active_db)
