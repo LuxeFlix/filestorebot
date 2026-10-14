@@ -6,6 +6,7 @@ async def get_shortlink(url: str, api_url: str, api_key: str):
         return url
         
     try:
+        api_url = api_url.replace("https://", "").replace("http://", "").strip("/")
         api_req_url = f"https://{api_url}/api?api={api_key}&url={quote(url)}"
         
         async with aiohttp.ClientSession() as session:
