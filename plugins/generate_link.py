@@ -10,7 +10,6 @@ from script import Script
 
 BATCH_STATE = {}
 
-# 🚀 SMART ID FORMATTER
 def get_correct_chat_id(chat_id):
     if not chat_id: return chat_id
     try:
@@ -31,15 +30,29 @@ def get_file_info(message):
     text_content = message.text.html if message.text else ""
     return None, None, text_content
 
-def get_msg_id(message: Message):
-    if hasattr(message, "forward_origin") and message.forward_origin and hasattr(message.forward_origin, 'message_id'):
-        return message.forward_origin.message_id
-        
+def extract_chat_and_msg_id(message: Message, default_db: int):
+    # 1. Check Kurigram forward_origin (No deprecation warning)
+    if getattr(message, "forward_origin", None):
+        origin = message.forward_origin
+        msg_id = getattr(origin, "message_id", None)
+        chat = getattr(origin, "chat", None)
+        chat_id = chat.id if chat else default_db
+        if msg_id:
+            return get_correct_chat_id(chat_id), msg_id
+
+    # 2. Extract both Channel ID and Message ID from Telegram Link
     if message.text:
-        match = re.search(r"t\.me/(?:c/)?(?:[a-zA-Z0-9_]+|-?\d+)/(\d+)", message.text)
-        if match:
-            return int(match.group(1))
-    return None
+        private_match = re.search(r"t\.me/c/(\d+)/(\d+)", message.text)
+        if private_match:
+            c_id = get_correct_chat_id(private_match.group(1))
+            m_id = int(private_match.group(2))
+            return c_id, m_id
+            
+        public_match = re.search(r"t\.me/([a-zA-Z0-9_]+)/(\d+)", message.text)
+        if public_match:
+            return default_db, int(public_match.group(2))
+            
+    return default_db, None
 
 @Client.on_message(filters.command("batch") & filters.private)
 async def start_batch_command(client: Client, message: Message):
@@ -68,7 +81,7 @@ async def message_handler(client: Client, message: Message):
     user_id = message.from_user.id
         
     if await db.is_banned(user_id):
-        support_btn = InlineKeyboardMarkup([[InlineKeyboardButton(Script.BTN_CONTACT_SUPPORT, url=Config.SUPPORT_LINK)]])
+        support_btn = InlineKeyboardMarkup([[InlineKeyboardButton(Script.BTN_CONTACT_SUPPORT, url=Config.SUPPORT_LINK)]]) if Config.SUPPORT_LINK else None
         return await message.reply_text(Script.BANNED_MSG, reply_markup=support_btn)
 
     if message.text and message.text.startswith("/"):
@@ -79,22 +92,22 @@ async def message_handler(client: Client, message: Message):
         return
 
     settings = await db.get_settings()
-    # 🚀 FIX APPLIED HERE:
     active_db = get_correct_chat_id(settings.get('active_db'))
     if not active_db:
         return await message.reply_text(Script.NO_DB_SET)
 
     if user_id in BATCH_STATE:
-        msg_id = get_msg_id(message)
+        target_chat_id, msg_id = extract_chat_and_msg_id(message, active_db)
         if not msg_id:
             return await message.reply_text(Script.WRONG_MSG_LINK)
             
         step = BATCH_STATE[user_id]['step']
         if step == 1:
-            BATCH_STATE[user_id] = {'step': 2, 'first_id': msg_id}
+            BATCH_STATE[user_id] = {'step': 2, 'first_id': msg_id, 'chat_id': target_chat_id}
             await message.reply_text(Script.BATCH_STEP_2.format(msg_id=msg_id))
         elif step == 2:
             first_id = BATCH_STATE[user_id]['first_id']
+            batch_chat_id = BATCH_STATE[user_id].get('chat_id', target_chat_id)
             last_id = msg_id
             if first_id > last_id:
                 first_id, last_id = last_id, first_id 
@@ -102,40 +115,46 @@ async def message_handler(client: Client, message: Message):
             wait_msg = await message.reply_text("⏳ **Generating Permanent Batch Link...**\n*(Scanning all files to save globally...)*")
             try:
                 files_data = []
+                last_error = None
                 for m_id in range(first_id, last_id + 1):
                     try:
-                        db_msg = await client.get_messages(active_db, m_id)
+                        db_msg = await client.get_messages(batch_chat_id, m_id)
                         if db_msg and not getattr(db_msg, "empty", True):
                             f_id, f_uniq, cap = get_file_info(db_msg)
                             f_data = {}
                             if f_id: f_data['f'] = f_id
                             if cap: f_data['cap'] = cap
                             f_data['m'] = m_id
-                            if f_data: files_data.append(f_data)
+                            if f_id or cap:
+                                files_data.append(f_data)
                     except FloodWait as e:
                         await asyncio.sleep(e.value + 1)
-                        db_msg = await client.get_messages(active_db, m_id)
+                        db_msg = await client.get_messages(batch_chat_id, m_id)
                         if db_msg and not getattr(db_msg, "empty", True):
                             f_id, f_uniq, cap = get_file_info(db_msg)
                             f_data = {}
                             if f_id: f_data['f'] = f_id
                             if cap: f_data['cap'] = cap
                             f_data['m'] = m_id
-                            if f_data: files_data.append(f_data)
-                    except Exception: pass
+                            if f_id or cap:
+                                files_data.append(f_data)
+                    except Exception as err:
+                        last_error = err
                     await asyncio.sleep(0.3)
 
-                if files_data:
-                    unique_id = await db.save_batch(files_data=files_data, chat_id=active_db)
-                else:
-                    unique_id = await db.save_batch(first_id, last_id, active_db)
-                
-                # 🚀 FIX: Ghost Link Prevention
+                if not files_data:
+                    err_detail = f"\n`{last_error}`" if last_error else ""
+                    return await wait_msg.edit_text(
+                        f"❌ **চ্যানেল (`{batch_chat_id}`) থেকে কোনো ফাইল পাওয়া যায়নি!**{err_detail}\n\n"
+                        f"👉 বটকে ওই চ্যানেলে **Admin** করা আছে কি না চেক করুন এবং চ্যানেলে একটি নতুন মেসেজ পাঠিয়ে আবার চেষ্টা করুন।"
+                    )
+
+                unique_id = await db.save_batch(files_data=files_data, chat_id=batch_chat_id)
                 if not unique_id:
                     return await wait_msg.edit_text("❌ **Database save failed. Please try again.**")
                 
                 custom_link = f"{Config.CUSTOM_DOMAIN}?start={unique_id}"
-                total_files = (last_id - first_id) + 1
+                total_files = len(files_data)
                 reply_text = Script.BATCH_SUCCESS_LINK.format(total_files=total_files, custom_link=custom_link)
                 buttons = InlineKeyboardMarkup([[InlineKeyboardButton(Script.BTN_ORIGINAL_LINK, url=custom_link, style="success")]])
                 await wait_msg.edit_text(reply_text, reply_markup=buttons, link_preview_options=LinkPreviewOptions(is_disabled=True))
@@ -154,23 +173,23 @@ async def message_handler(client: Client, message: Message):
 
     file_id, file_unique_id, caption = get_file_info(message)
     if not file_id:
-        db_msg_id = get_msg_id(message)
+        target_chat_id, db_msg_id = extract_chat_and_msg_id(message, active_db)
         if db_msg_id:
-            wait_msg = await message.reply_text(Script.GEN_DB_LINK_WAIT, reply_to_message_id=message.id)
+            # 🚀 FIX: Removed reply_to_message_id, replaced with quote=True
+            wait_msg = await message.reply_text(Script.GEN_DB_LINK_WAIT, quote=True)
             try:
-                db_msg = await client.get_messages(active_db, db_msg_id)
+                db_msg = await client.get_messages(target_chat_id, db_msg_id)
+                if not db_msg or getattr(db_msg, "empty", True):
+                    return await wait_msg.edit_text(f"❌ **চ্যানেল (`{target_chat_id}`) এ মেসেজটি পাওয়া যায়নি!**")
                 f_id, f_uniq, cap = get_file_info(db_msg)
-            except Exception:
-                f_id, f_uniq, cap = None, None, ""
+            except Exception as e:
+                return await wait_msg.edit_text(f"❌ **চ্যানেল থেকে ফাইল রিড করা যায়নি:** `{e}`")
                 
-            unique_id = await db.save_file(db_msg_id, active_db, f_id, f_uniq, cap)
-            
-            # 🚀 FIX: Ghost Link Prevention
+            unique_id = await db.save_file(db_msg_id, target_chat_id, f_id, f_uniq, cap)
             if not unique_id:
                 return await wait_msg.edit_text("❌ **Database save failed. Please try again.**")
                 
             custom_link = f"{Config.CUSTOM_DOMAIN}?start={unique_id}"
-            
             reply_text = Script.SINGLE_SUCCESS_LINK.format(custom_link=custom_link)
             buttons = InlineKeyboardMarkup([[InlineKeyboardButton(Script.BTN_ORIGINAL_LINK, url=custom_link, style="success")]])
             await wait_msg.edit_text(reply_text, reply_markup=buttons, link_preview_options=LinkPreviewOptions(is_disabled=True))
@@ -183,7 +202,8 @@ async def message_handler(client: Client, message: Message):
                     pass
         return
         
-    wait_msg = await message.reply_text(Script.GEN_LINK_WAIT, reply_to_message_id=message.id)
+    # 🚀 FIX: Removed reply_to_message_id, replaced with quote=True
+    wait_msg = await message.reply_text(Script.GEN_LINK_WAIT, quote=True)
     existing_file = await db.check_file_exists(file_unique_id)
     if existing_file:
         custom_link = f"{Config.CUSTOM_DOMAIN}?start={existing_file['_id']}"
@@ -200,7 +220,6 @@ async def generate_single_link(client: Client, query):
     msg_id = int(query.data.split("_")[1])
     original_msg = await client.get_messages(query.message.chat.id, msg_id)
     settings = await db.get_settings()
-    # 🚀 FIX APPLIED HERE:
     active_db = get_correct_chat_id(settings.get('active_db'))
     
     wait_msg = await query.message.edit_text(Script.PROCESSING_FILE)
@@ -211,25 +230,22 @@ async def generate_single_link(client: Client, query):
         final_msg_id = None
         forward_chat_id = None
         
-        if hasattr(original_msg, "forward_origin") and original_msg.forward_origin and hasattr(original_msg.forward_origin, 'chat'):
-            forward_chat_id = original_msg.forward_origin.chat.id
-            
-        if forward_chat_id and forward_chat_id == active_db:
-            if hasattr(original_msg, "forward_origin") and original_msg.forward_origin and hasattr(original_msg.forward_origin, 'message_id'):
-                final_msg_id = original_msg.forward_origin.message_id
+        if getattr(original_msg, "forward_origin", None):
+            origin = original_msg.forward_origin
+            if getattr(origin, "chat", None):
+                forward_chat_id = origin.chat.id
+            if forward_chat_id and forward_chat_id == active_db:
+                final_msg_id = getattr(origin, "message_id", None)
         
         if not final_msg_id:
             copied_msg = await original_msg.copy(chat_id=active_db)
             final_msg_id = copied_msg.id
             
         unique_id = await db.save_file(final_msg_id, active_db, file_id, file_unique_id, caption)
-        
-        # 🚀 FIX: Ghost Link Prevention
         if not unique_id:
             return await wait_msg.edit_text("❌ **Database save failed. Please try again.**")
             
         custom_link = f"{Config.CUSTOM_DOMAIN}?start={unique_id}"
-        
         reply_text = Script.SAVED_IN_DB.format(custom_link=custom_link)
         buttons = InlineKeyboardMarkup([[InlineKeyboardButton(Script.BTN_ORIGINAL_LINK, url=custom_link, style="success")]])
         await wait_msg.edit_text(reply_text, reply_markup=buttons, link_preview_options=LinkPreviewOptions(is_disabled=True))
