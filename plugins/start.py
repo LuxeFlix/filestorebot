@@ -383,8 +383,7 @@ async def start_command(client: Client, message: Message):
         if Config.SUPPORT_LINK:
             support_btn.append([InlineKeyboardButton(Script.BTN_CONTACT_SUPPORT, url=clean_url(Config.SUPPORT_LINK))])
         reply_markup = InlineKeyboardMarkup(support_btn) if support_btn else None
-        # 🚀 FIX: Removed reply_to_message_id, replaced with quote=True
-        return await message.reply_text(Script.BANNED_MSG, reply_markup=reply_markup, quote=True)
+        return await message.reply_text(Script.BANNED_MSG, reply_markup=reply_markup)
 
     is_new_user = await db.add_user(user_id)
     settings = await db.get_settings()
@@ -401,8 +400,7 @@ async def start_command(client: Client, message: Message):
             pass
 
     if settings.get('mode') == 'private' and not is_admin:
-        # 🚀 FIX: Removed reply_to_message_id, replaced with quote=True
-        await message.reply_text(Script.PRIVATE_MODE_MSG, quote=True)
+        await message.reply_text(Script.PRIVATE_MODE_MSG)
         return
 
     text = message.text
@@ -412,8 +410,7 @@ async def start_command(client: Client, message: Message):
         missing_fsubs = await check_fsub(client, user_id)
         if missing_fsubs:
             keyboard = await get_fsub_keyboard(client, missing_fsubs, payload)
-            # 🚀 FIX: Removed reply_to_message_id, replaced with quote=True
-            await message.reply_text(Script.FSUB_WARNING, reply_markup=keyboard, quote=True)
+            await message.reply_text(Script.FSUB_WARNING, reply_markup=keyboard)
             return
 
     if payload:
